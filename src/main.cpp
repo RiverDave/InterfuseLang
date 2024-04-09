@@ -7,7 +7,8 @@ int main(){
 
   // lex test
   const std::string text {
-    "@rochi = 23; @num=45;  "
+    // "@rochi = 23; @num=45;  "
+    "do while if else true false if @param"
   };
 
   Lexer lex{text};

@@ -24,6 +24,8 @@ inline bool isIdentifier(char ch) {
 Token getKeywordType(const std::string& keyword){
 
   //FIXME: This syntax looks terrible
+  //Also, should I store string literals
+  //somewhere else?
   if(keyword == "if"){
     return Token(KEYWORD_IF, keyword);
 
@@ -42,8 +44,14 @@ Token getKeywordType(const std::string& keyword){
   }else if (keyword == "do"){
     return Token(KEYWORD_LOOP_DO, keyword);
 
-  }
+  }else if (keyword == "true"){
+    return Token(KEYWORD_TRUE, keyword);
 
+  }else if (keyword == "false"){
+    return Token(KEYWORD_FALSE, keyword);
+
+  }  
+  
   return Token(INVALID, "\0");
 }
 
@@ -107,8 +115,8 @@ Token Lexer::get_next_token() {
       std::string word = {_position, buffer};
 
       if(word[0] == '@'){
-      return Token(IDENTIFIER, word);
       _position = buffer; 
+      return Token(IDENTIFIER, word);
 
       }else{
         //word found could be a Pourer keyword
@@ -117,7 +125,6 @@ Token Lexer::get_next_token() {
       }
       //update current position
     }
-
     
     // Same as above
     if (isNumeric(curr_char)) {
