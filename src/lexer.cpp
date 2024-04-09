@@ -4,16 +4,13 @@
 #include "../include/Token.h"
 #include <algorithm>
 #include <cctype>
-#include <iostream>
 #include <vector>
 
 // Since this is static it requires to be initialized
 // outside for some reason
 // std::unordered_map<char, CHAR_TYPE> Lexer::subTokenClassifier;
 
-Lexer::Lexer(const std::string_view input)
-    : input(input), _position(input.begin()) {}
-
+//utils
 inline bool isWhiteSpace(char ch) {
   return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
 }
@@ -22,6 +19,39 @@ inline bool isIdentifier(char ch) {
   return isalpha(ch) || ch == '@'; // In theory identifiers should be made only by alphabetic characters
                       // in case of variables they'll start with a '$' sign
 }
+
+//determines type of keyword 
+Token getKeywordType(const std::string& keyword){
+
+  //FIXME: This syntax looks terrible
+  if(keyword == "if"){
+    return Token(KEYWORD_IF, keyword);
+
+  }else if (keyword == "else"){
+    return Token(KEYWORD_ELSE, keyword);
+
+  }else if (keyword == "elif"){
+    return Token(KEYWORD_ELSE_IF, keyword);
+
+  }else if (keyword == "for"){
+    return Token(KEYWORD_IF, keyword);
+
+  }else if (keyword == "while"){
+    return Token(KEYWORD_IF, keyword);
+
+  }else if (keyword == "do"){
+    return Token(KEYWORD_LOOP_DO, keyword);
+
+  }
+
+  return Token(INVALID, "\0");
+}
+
+Lexer::Lexer(const std::string_view input)
+    : input(input), _position(input.begin()) {}
+
+
+
 
 //NOTE: If no further condition is needed here
 //consider unwrapping this condition
@@ -75,10 +105,17 @@ Token Lexer::get_next_token() {
       //range initialization
 
       std::string word = {_position, buffer};
-      //update current position
-      _position = buffer; 
-      return Token(IDENTIFIER, word);
 
+      if(word[0] == '@'){
+      return Token(IDENTIFIER, word);
+      _position = buffer; 
+
+      }else{
+        //word found could be a Pourer keyword
+        _position = buffer; 
+        return getKeywordType(word);
+      }
+      //update current position
     }
 
     

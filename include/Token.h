@@ -15,13 +15,27 @@
     TYPE_SPECIFIER,
     STRING,
     IDENTIFIER,  // variables, syntactically begin with a '$'.
-    CONDITIONAL, // if, endif, else elif
+                 //
     KEYWORD,     // restricted keywords?, i need to research about this
+
+    //boolean keywords
+    KEYWORD_IF,
+    KEYWORD_ELSE,
+    KEYWORD_ELSE_IF,
+
+    //iteration keywords
+    KEYWORD_LOOP_FOR,
+    KEYWORD_LOOP_WHILE,
+    KEYWORD_LOOP_DO,
+
+
     OPERATOR,    // arithmethic expressions
     ASSIGNMENT,
-    LABEL,
     LINEBREAK, // -> (;) |  need to thing about this, do i consider forcing the user to use semis?
     SPACE,
+
+    //data types(to be used much later)
+    DATA_TYPE,
   };
 
 class Token {
@@ -59,11 +73,15 @@ std::ostream &display(std::ostream &os) const {
         XTOKEN_CASE(TYPE_SPECIFIER)
         XTOKEN_CASE(STRING)
         XTOKEN_CASE(IDENTIFIER)
-        XTOKEN_CASE(CONDITIONAL)
+
         XTOKEN_CASE(ASSIGNMENT)
         XTOKEN_CASE(KEYWORD)
-        XTOKEN_CASE(OPERATOR)
-        XTOKEN_CASE(LABEL)
+        XTOKEN_CASE(KEYWORD_IF)
+        XTOKEN_CASE(KEYWORD_ELSE)
+        XTOKEN_CASE(KEYWORD_ELSE_IF)
+        XTOKEN_CASE(KEYWORD_LOOP_FOR)
+        XTOKEN_CASE(KEYWORD_LOOP_DO)
+        XTOKEN_CASE(KEYWORD_LOOP_WHILE)
         XTOKEN_CASE(LINEBREAK)
         XTOKEN_CASE(SPACE)
         default: os << "Type: Unknown";
