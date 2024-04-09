@@ -1,0 +1,4 @@
+
+    // [Identifier, type, assign, value(needs to match type)]
+    $num : int = 32;
+

@@ -7,18 +7,15 @@ int main(){
 
   // lex test
   const std::string text {
-    "$num : Int = 32"
+    "@rochi = 23; @num=45;  "
   };
 
+  Lexer lex{text};
+  std::vector<Token> tokens = lex.tokenize();
 
-
-  Lexer lex;
-  std::vector<Token> tokens = lex.tokenize(text);
-
-  for(Token &e : tokens){
+  for(auto &e : tokens){
     std::cout << e;
   }
-
 
   return 0;
 }
