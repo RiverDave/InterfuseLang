@@ -33,6 +33,27 @@ inline bool isString(char ch) {
   return false;
 }
 
+// Will ensure there are 3 consecutive backticks to demark it as multiblock
+// comment
+auto check_consecutive_backticks = [](std::string_view::iterator &_position,
+                                      const std::string_view &input) -> bool {
+  auto _pos = _position;
+
+  int count{};
+  for (auto it = _pos; it != input.end(); ++it) {
+
+    if (*it == '`') {
+      count++;
+      if (count == 3) {
+        return true;
+      }
+    } else {
+      count = 0;
+    }
+  }
+  return false;
+};
+
 // Should be able to find closing pair like -> "" , ''
 
 // TODO: Create error handling function that terminates program
@@ -95,6 +116,20 @@ Token Lexer::get_next_token() {
     return Token(ASSIGNMENT, "=");
     break;
 
+  case '#': {
+
+    // Look for an endline '\n' and ignore all chars in between
+    auto endline = std::find(_position, input.end(), '\n');
+
+    // NOTE: Im not sure how safe it is do this
+    // specially the second condition
+    if (*endline == '\n' && endline != input.end()) {
+      endline++;
+    }
+    _position = endline;
+    return Token(COMMENT_SINGLE_LINE, "#");
+  } break;
+
   case ' ':
   case '\t':
   case '\n':
@@ -105,24 +140,52 @@ Token Lexer::get_next_token() {
     return Token(SPACE, " ");
     break;
 
-    // TODO: Add checking if its a string {"" || ' '}
+  case '`': {
 
+    if (check_consecutive_backticks(_position, input)) {
+      _position += 3;
+
+      // auto literal = *_position + *_position + *_position;
+      std::string multi_comment{1, curr_char};
+      multi_comment += curr_char;
+      multi_comment += curr_char;
+
+      auto closing_comment = std::find(_position, input.end(), curr_char);
+
+      if (closing_comment == input.end() ||
+          !check_consecutive_backticks(closing_comment, input)) {
+        // Not a valid multi-line comment
+        _position++;
+        return {INVALID, "\0"};
+      }
+
+      // will check for comment block
+      if (check_consecutive_backticks(closing_comment, input)) {
+        _position = closing_comment + 3;
+        return Token(COMMENT_MULTI_LINE, multi_comment);
+      }
+    }
+
+    _position++;
+    return {INVALID, "\0"};
+
+    // Handle multi line comments which are used with ``` like in markdown
+    // quotes considering _pos is in a ' or " sign
+    // Im aware this type of logic could be greatly simplified with std::regex
+
+  } break;
   case '\'':
   case '"': {
-
-    // FIXME: What says below:
-    // I could get this into a function but it didn't work
     auto old_pos = _position;
 
     // Moves iterator to avoid finding the current char
     auto move_itr_bounds = [](const std::string_view &input,
                               auto &_itr) -> void {
+      // When working with the C++ container library, the proper type for
+      // the difference between iterators is the member typedef
+      // difference_type, which is often synonymous with std::ptrdiff_t.
+      // -cppref
       if (std::distance(input.begin(), _itr) <
-          // When working with the C++ container library, the proper type for
-          // the difference between iterators is the member typedef
-          // difference_type, which is often synonymous with std::ptrdiff_t.
-          // -cppref
-
           static_cast<std::ptrdiff_t>(input.length())) {
         _itr++;
       } else {
@@ -194,7 +257,7 @@ std::vector<Token> Lexer::tokenize() {
   std::vector<Token> parsed_tokens;
 
   while (_position != input.end()) {
-    // This function should be in charge of updating
+    // This function is in charge of updating
     // the iterator's position
     const Token curr_token = this->get_next_token();
     parsed_tokens.push_back(curr_token);

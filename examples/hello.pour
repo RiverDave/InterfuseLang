@@ -1,4 +1,17 @@
 
     // [Identifier, type, assign, value(needs to match type)]
-    $num : int = 32;
 
+
+# This is a numeric declaration
+@var = 23
+
+# This is a string declaration
+@text = 'This is a string'
+
+```
+  this is inside a multi line comment
+```
+"""
+Its also supported with triple double quotes!
+
+"""
