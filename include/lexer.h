@@ -13,15 +13,16 @@
 class Lexer final {
 private:
 
+  const std::string_view input;
+  std::string_view::iterator _position;
+  Token get_next_token();
+
 
 public:
-  Token get_next_token();
+
 
   Lexer(const std::string_view);
 
-  const std::string_view input;
-
-  std::string_view::iterator _position;
 
   //Should tokenize input
   std::vector<Token> tokenize();

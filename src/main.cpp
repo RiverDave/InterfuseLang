@@ -5,10 +5,11 @@
 
 int main(){
 
-  // lex test
+  // input test
   const std::string text {
-    // "@rochi = 23; @num=45;  "
-    "do while if else true false if @param"
+    "'langosta'"
+    // "langosta"
+    // "do while if else true false if @param"
   };
 
   Lexer lex{text};
