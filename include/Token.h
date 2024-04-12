@@ -26,6 +26,10 @@ enum TOKEN_TYPE {
   KEYWORD_TRUE,
   KEYWORD_FALSE,
 
+  //Function keywords
+  KEYWORD_PROCEDURE,
+  KEYWORD_PROVIDE,
+
   // Comment types
   COMMENT_SINGLE_LINE,
   COMMENT_MULTI_LINE,
@@ -35,7 +39,21 @@ enum TOKEN_TYPE {
   KEYWORD_LOOP_WHILE,
   KEYWORD_LOOP_DO,
 
-  OPERATOR, // arithmethic expressions
+  //Bracket pairs tokens
+
+  PARENTHESIS_OPEN,
+  PARENTHESIS_CLOSE,
+  BRACKET_OPEN,
+  BRACKET_CLOSE,
+  CURLY_BRACKET_OPEN,
+  CURLY_BRACKET_CLOSE,
+
+  //basic arithmetic operators
+  OPERATOR_PLUS, 
+  OPERATOR_MINUS,
+  OPERATOR_MULTIPLY,
+  OPERATOR_DIVIDE,
+
   ASSIGNMENT,
   LINEBREAK, // -> (;) |  need to thing about this, do i consider forcing the
              // user to use semis?
@@ -68,7 +86,6 @@ private:
 
     // macro that stringifies enum name with the purpose
     // of logging
-
 #define XTOKEN_CASE(TOKEN_TYPE)                                                \
   case TOKEN_TYPE:                                                             \
     os << "Type: " << #TOKEN_TYPE;                                             \
@@ -93,6 +110,18 @@ private:
       XTOKEN_CASE(KEYWORD_LOOP_FOR)
       XTOKEN_CASE(KEYWORD_LOOP_DO)
       XTOKEN_CASE(KEYWORD_LOOP_WHILE)
+      XTOKEN_CASE(KEYWORD_PROCEDURE)
+      XTOKEN_CASE(KEYWORD_PROVIDE)
+      XTOKEN_CASE(PARENTHESIS_OPEN)
+      XTOKEN_CASE(PARENTHESIS_CLOSE)
+      XTOKEN_CASE(BRACKET_OPEN)
+      XTOKEN_CASE(BRACKET_CLOSE)
+      XTOKEN_CASE(CURLY_BRACKET_OPEN)
+      XTOKEN_CASE(CURLY_BRACKET_CLOSE)
+      XTOKEN_CASE(OPERATOR_PLUS)
+      XTOKEN_CASE(OPERATOR_MINUS)
+      XTOKEN_CASE(OPERATOR_MULTIPLY)
+      XTOKEN_CASE(OPERATOR_DIVIDE)
       XTOKEN_CASE(COMMENT_SINGLE_LINE)
       XTOKEN_CASE(COMMENT_MULTI_LINE)
       XTOKEN_CASE(LINEBREAK)

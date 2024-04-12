@@ -8,6 +8,7 @@
 # This is a string declaration
 @text = 'This is a string'
 
+# Comments:
 ```
   this is inside a multi line comment
 ```
@@ -15,3 +16,18 @@
 Its also supported with triple double quotes!
 
 """
+
+# Some ideas:
+
+  # This is a function
+@myFunction = proc() {
+  out("Hello, World!")
+}
+# or strict mode
+
+functor @myFunction = proc() -> void {
+  out("Hello, World!")
+}
+
+
+

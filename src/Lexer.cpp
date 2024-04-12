@@ -35,6 +35,7 @@ inline bool isString(char ch) {
 
 // Will ensure there are 3 consecutive backticks to demark it as multiblock
 // comment
+
 auto check_consecutive_backticks = [](std::string_view::iterator &_position,
                                       const std::string_view &input) -> bool {
   auto _pos = _position;
@@ -52,6 +53,18 @@ auto check_consecutive_backticks = [](std::string_view::iterator &_position,
     }
   }
   return false;
+};
+
+auto move_itr_bounds = [](const std::string_view &input, auto &_itr) -> void {
+  // When working with the C++ container library, the proper type for
+  // the difference between iterators is the member typedef
+  // difference_type, which is often synonymous with std::ptrdiff_t.
+  // -cppref
+  if (_itr != input.end()) {
+    _itr++;
+  } else {
+    return;
+  }
 };
 
 // Should be able to find closing pair like -> "" , ''
@@ -75,10 +88,10 @@ Token getKeywordType(const std::string &keyword) {
     return Token(KEYWORD_ELSE_IF, keyword);
 
   } else if (keyword == "for") {
-    return Token(KEYWORD_IF, keyword);
+    return Token(KEYWORD_LOOP_FOR, keyword);
 
   } else if (keyword == "while") {
-    return Token(KEYWORD_IF, keyword);
+    return Token(KEYWORD_LOOP_WHILE, keyword);
 
   } else if (keyword == "do") {
     return Token(KEYWORD_LOOP_DO, keyword);
@@ -88,9 +101,15 @@ Token getKeywordType(const std::string &keyword) {
 
   } else if (keyword == "false") {
     return Token(KEYWORD_FALSE, keyword);
+
+  } else if (keyword == "provide") { // aka return
+    return Token(KEYWORD_PROVIDE, keyword);
+
+  } else if (keyword == "procedure") {
+    return Token(KEYWORD_PROCEDURE, keyword);
   }
 
-  return Token(INVALID, "\0");
+  return Token(INVALID, keyword);
 }
 
 Lexer::Lexer(const std::string_view input)
@@ -114,6 +133,58 @@ Token Lexer::get_next_token() {
   case '=':
     _position++;
     return Token(ASSIGNMENT, "=");
+    break;
+
+    // paired tokens (will be checked in parser)
+  case '(':
+    _position++;
+    return Token(PARENTHESIS_OPEN, "(");
+    break;
+
+  case ')':
+    _position++;
+    return Token(PARENTHESIS_CLOSE, ")");
+    break;
+
+  case '{':
+    _position++;
+    return Token(CURLY_BRACKET_OPEN, "{");
+    break;
+
+  case '}':
+    _position++;
+    return Token(CURLY_BRACKET_CLOSE, "}");
+    break;
+
+  case '[':
+    _position++;
+    return Token(BRACKET_OPEN, "[");
+    break;
+
+  case ']':
+    _position++;
+    return Token(BRACKET_CLOSE, "]");
+    break;
+
+    // arithmetic operators
+  case '+':
+    _position++;
+    return Token(OPERATOR_PLUS, "+");
+    break;
+
+  case '-':
+    _position++;
+    return Token(OPERATOR_MINUS, "-");
+    break;
+
+  case '*':
+    _position++;
+    return Token(OPERATOR_MULTIPLY, "*");
+    break;
+
+  case '/':
+    _position++;
+    return Token(OPERATOR_DIVIDE, "/");
     break;
 
   case '#': {
@@ -141,6 +212,8 @@ Token Lexer::get_next_token() {
     break;
 
   case '`': {
+    // Handle multi line comments which are used with ``` like in markdown
+    // Im aware this type of logic could be greatly simplified with std::regex
 
     if (check_consecutive_backticks(_position, input)) {
       _position += 3;
@@ -169,29 +242,12 @@ Token Lexer::get_next_token() {
     _position++;
     return {INVALID, "\0"};
 
-    // Handle multi line comments which are used with ``` like in markdown
-    // quotes considering _pos is in a ' or " sign
-    // Im aware this type of logic could be greatly simplified with std::regex
-
   } break;
   case '\'':
   case '"': {
     auto old_pos = _position;
 
     // Moves iterator to avoid finding the current char
-    auto move_itr_bounds = [](const std::string_view &input,
-                              auto &_itr) -> void {
-      // When working with the C++ container library, the proper type for
-      // the difference between iterators is the member typedef
-      // difference_type, which is often synonymous with std::ptrdiff_t.
-      // -cppref
-      if (std::distance(input.begin(), _itr) <
-          static_cast<std::ptrdiff_t>(input.length())) {
-        _itr++;
-      } else {
-        return;
-      }
-    };
 
     move_itr_bounds(input, _position);
 
@@ -215,41 +271,54 @@ Token Lexer::get_next_token() {
   default:
 
     // In case is variable or any other Pourer keyword
-    if (isIdentifier(curr_char)) {
+    if (curr_char == '@') {
 
       // since we know we got an alphabetic character
       // We'll keep moving our iterator until we find something that
       // is not alphabetic: @number=32;
 
-      auto buffer = std::find_if_not(_position, input.end(), isIdentifier);
+      auto old_pos = _position;
+
+      move_itr_bounds(input, _position);
+
+      if (old_pos == _position || _position == input.end() ||
+          *_position == '@') {
+        // out of bounds, prolly end of string
+        return Token(INVALID, "\0");
+      }
+
+      std::string_view::iterator buffer = std::find_if_not(
+          _position, input.end(), [](char ch) { return isalnum(ch); });
 
       // range initialization
+      std::string identifier = {_position, buffer};
+      std::cout << *buffer << "\n";
 
-      std::string word = {_position, buffer};
-
-      if (word[0] == '@') {
-        _position = buffer;
-        return Token(IDENTIFIER, word);
-
-      } else {
-        // word found could be a Pourer keyword
-        _position = buffer;
-        return getKeywordType(word);
-      }
+      // word found could be a Pourer keyword
+      _position = buffer;
+      return Token(IDENTIFIER, identifier);
       // update current position
-    }
+    } else if (isNumeric(curr_char)) {
 
-    if (isNumeric(curr_char)) {
       auto buffer = std::find_if_not(_position, input.end(), isNumeric);
       std::string number = {_position, buffer};
       _position = buffer;
       return Token(NUMBER, number);
+    } else { // token could potentially be a keyword
+
+      auto buffer = std::find_if_not(_position, input.end(), isalnum);
+      std::string word = {_position, buffer};
+      _position = buffer;
+
+      // Check  keyword is valid
+      return getKeywordType(word);
     }
     break;
-  }
+    // token could be a keyword
 
-  _position++;
-  return Token(INVALID, "\0");
+    _position++;
+    return Token(INVALID, "\0");
+  }
 }
 
 std::vector<Token> Lexer::tokenize() {
