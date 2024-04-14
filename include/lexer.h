@@ -2,6 +2,7 @@
 #define LEXER_H
 #include "./Token.h"
 #include <iostream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -16,15 +17,19 @@ private:
   const std::string_view input;
   std::string_view::iterator _position;
   Token get_next_token();
+  // std::optional<Token> peek();
+  // void consume();
 
 
 public:
 
 
-  Lexer(const std::string_view);
+  explicit Lexer(const std::string_view);
 
-
-  //Should tokenize input
+  //helps to classify each sub_token type
+  //no discard is used to ensure that the return value is used
+  //otherwise a warning will be issued
+  [[nodiscard]]
   std::vector<Token> tokenize();
 
   //used to classify each sub_token type

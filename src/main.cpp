@@ -7,10 +7,15 @@ int main() {
 
   // input test
   const std::string srccode = R"(
+# This is a comment
 @var = "Main"
+@name = "John"
+
+@x = 10 * 10
 )";
 
-  Lexer lex{srccode};
+  //move so that it's not copied
+  Lexer lex{std::move(srccode)};
   std::vector<Token> tokens = lex.tokenize();
   std::cout << "Input size: " << srccode.size() << "\n";
 

@@ -36,7 +36,7 @@ inline bool isString(char ch) {
 // Will ensure there are 3 consecutive backticks to demark it as multiblock
 // comment
 
-auto check_consecutive_backticks = [](std::string_view::iterator &_position,
+auto check_consecutive_backticks = [](const std::string_view::iterator &_position,
                                       const std::string_view &input) -> bool {
   auto _pos = _position;
 
@@ -126,64 +126,64 @@ Token Lexer::get_next_token() {
   switch (curr_char) {
 
   case ';':
-    _position++;
+    ++_position;
     return Token(LINEBREAK, ";");
     break;
 
   case '=':
-    _position++;
+    ++_position;
     return Token(ASSIGNMENT, "=");
     break;
 
     // paired tokens (will be checked in parser)
   case '(':
-    _position++;
+    ++_position;
     return Token(PARENTHESIS_OPEN, "(");
     break;
 
   case ')':
-    _position++;
+    ++_position;
     return Token(PARENTHESIS_CLOSE, ")");
     break;
 
   case '{':
-    _position++;
+    ++_position;
     return Token(CURLY_BRACKET_OPEN, "{");
     break;
 
   case '}':
-    _position++;
+    ++_position;
     return Token(CURLY_BRACKET_CLOSE, "}");
     break;
 
   case '[':
-    _position++;
+    ++_position;
     return Token(BRACKET_OPEN, "[");
     break;
 
   case ']':
-    _position++;
+    ++_position;
     return Token(BRACKET_CLOSE, "]");
     break;
 
     // arithmetic operators
   case '+':
-    _position++;
+    ++_position;
     return Token(OPERATOR_PLUS, "+");
     break;
 
   case '-':
-    _position++;
+    ++_position;
     return Token(OPERATOR_MINUS, "-");
     break;
 
   case '*':
-    _position++;
+    ++_position;
     return Token(OPERATOR_MULTIPLY, "*");
     break;
 
   case '/':
-    _position++;
+    ++_position;
     return Token(OPERATOR_DIVIDE, "/");
     break;
 
@@ -207,7 +207,7 @@ Token Lexer::get_next_token() {
   case '\v':
   case '\f':
   case '\r':
-    _position++;
+    ++_position;
     return Token(SPACE, " ");
     break;
 
@@ -228,7 +228,7 @@ Token Lexer::get_next_token() {
       if (closing_comment == input.end() ||
           !check_consecutive_backticks(closing_comment, input)) {
         // Not a valid multi-line comment
-        _position++;
+        ++_position;
         return {INVALID, "\0"};
       }
 
@@ -239,7 +239,7 @@ Token Lexer::get_next_token() {
       }
     }
 
-    _position++;
+    ++_position;
     return {INVALID, "\0"};
 
   } break;
@@ -264,7 +264,7 @@ Token Lexer::get_next_token() {
       return Token(STRING, std::string{old_pos, _position});
     }
 
-    _position++;
+    ++_position;
     return Token(INVALID, "\0");
   } break;
 
@@ -316,7 +316,7 @@ Token Lexer::get_next_token() {
     break;
     // token could be a keyword
 
-    _position++;
+    ++_position;
     return Token(INVALID, "\0");
   }
 }

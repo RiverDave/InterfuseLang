@@ -66,7 +66,6 @@ enum TOKEN_TYPE {
 class Token {
 
 public:
-  Token() = default;
 
   Token(TOKEN_TYPE TokenType = INVALID, const std::string &v = "Unknown")
       : type(TokenType), value(v) {}
