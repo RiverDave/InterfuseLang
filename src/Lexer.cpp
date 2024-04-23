@@ -1,43 +1,78 @@
-#ifndef LEXER_CPP
-#define LEXER_CPP
 #include "../include/Lexer.h" //FIXME: These shouldn't be included with relative path
-#include "../include/Token.h"
 #include <algorithm>
-#include <cctype>
+#include <fstream>
 #include <iostream>
+#include <sstream>
+#include <string>
+#include <unordered_map>
 #include <vector>
+
+#include "../build/parser.hpp"
+
+
+// Lexer* getLexerInstance(){
+//   if(lexerInstance == nullptr){
+//     //args are hardcoded for now
+//     //should be passed as arguments later on
+//     lexerInstance = new Lexer(std::fstream{"../test/test.pour"});
+//   }
+//   return lexerInstance;
+// }
+
+
+extern "C" int yylex() {
+
+
+  if (!lexerInstance) {
+    std::fstream file{"../examples/new.pour"};
+    lexerInstance = new Lexer(file);
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    std::cout << "File:" << std::endl;
+    std::cout << ss.str() << std::endl;
+  }
+
+  Token token = lexerInstance->get_next_token();
+  // Ignore all whitespaces and comments tokens
+  while (token.getType() == SPACE || token.getType() == LINEBREAK ||
+         token.getType() == COMMENT_SINGLE_LINE ||
+         token.getType() == COMMENT_MULTI_LINE) {
+    token = lexerInstance->get_next_token();
+  }
+
+    switch (token.getType()) {
+        case NUMBER:
+          yylval.token = new Token(token);
+          return TKNUMBER;
+        default:
+          return 0;  // Return 0 if no more tokens
+    }
+
+
+  // std::cout << "Tokenized: " << token << std::endl;
+  // return token.getType();
+}
 
 // Since this is static it requires to be initialized
 // outside for some reason
 // std::unordered_map<char, CHAR_TYPE> Lexer::subTokenClassifier;
 
 // utils
-inline bool isWhiteSpace(char ch) {
+inline bool isWhiteSpace(const char ch) {
   return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
 }
 
-inline bool isIdentifier(char ch) {
+inline bool isIdentifier(const char ch) {
   return isalpha(ch) || ch == '@'; // In theory identifiers should be made only
                                    // by alphabetic characters in case of
                                    // variables they'll start with a '$' sign
 }
-inline bool isString(char ch) {
-  if (ch == '"') {
-    return ch == '"';
-  }
-
-  if (ch == '\'') {
-    return ch == '\'';
-  }
-
-  return false;
-}
-
+inline bool isString(const char ch) { return ch == '"' || ch == '\''; }
 // Will ensure there are 3 consecutive backticks to demark it as multiblock
 // comment
 
-auto check_consecutive_backticks = [](const std::string_view::iterator &_position,
-                                      const std::string_view &input) -> bool {
+auto check_consecutive_backticks = [](const std::string::iterator &_position,
+                                      const std::string &input) -> bool {
   auto _pos = _position;
 
   int count{};
@@ -55,7 +90,7 @@ auto check_consecutive_backticks = [](const std::string_view::iterator &_positio
   return false;
 };
 
-auto move_itr_bounds = [](const std::string_view &input, auto &_itr) -> void {
+auto move_itr_bounds = [](const std::string &input, auto &_itr) -> void {
   // When working with the C++ container library, the proper type for
   // the difference between iterators is the member typedef
   // difference_type, which is often synonymous with std::ptrdiff_t.
@@ -73,47 +108,50 @@ auto move_itr_bounds = [](const std::string_view &input, auto &_itr) -> void {
 // if lexing process failed(invalid token)
 
 // determines type of keyword
+
+std::unordered_map<std::string, TOKEN_TYPE> keywordMap = {
+
+    {"if", KEYWORD_IF},
+    {"else", KEYWORD_ELSE},
+    {"elif", KEYWORD_ELSE_IF},
+    {"for", KEYWORD_LOOP_FOR},
+    {"while", KEYWORD_LOOP_WHILE},
+    {"do", KEYWORD_LOOP_DO},
+    {"true", KEYWORD_TRUE},
+    {"false", KEYWORD_FALSE},
+    {"provide", KEYWORD_PROVIDE},
+    {"procedure", KEYWORD_PROCEDURE}
+};
+
 Token getKeywordType(const std::string &keyword) {
-
-  // FIXME: This syntax looks terrible
-  // Also, should I store string literals
-  // somewhere else?
-  if (keyword == "if") {
-    return Token(KEYWORD_IF, keyword);
-
-  } else if (keyword == "else") {
-    return Token(KEYWORD_ELSE, keyword);
-
-  } else if (keyword == "elif") {
-    return Token(KEYWORD_ELSE_IF, keyword);
-
-  } else if (keyword == "for") {
-    return Token(KEYWORD_LOOP_FOR, keyword);
-
-  } else if (keyword == "while") {
-    return Token(KEYWORD_LOOP_WHILE, keyword);
-
-  } else if (keyword == "do") {
-    return Token(KEYWORD_LOOP_DO, keyword);
-
-  } else if (keyword == "true") {
-    return Token(KEYWORD_TRUE, keyword);
-
-  } else if (keyword == "false") {
-    return Token(KEYWORD_FALSE, keyword);
-
-  } else if (keyword == "provide") { // aka return
-    return Token(KEYWORD_PROVIDE, keyword);
-
-  } else if (keyword == "procedure") {
-    return Token(KEYWORD_PROCEDURE, keyword);
+  auto it = keywordMap.find(keyword);
+  if (it != keywordMap.end()) {
+    return Token(it->second, keyword);
   }
-
   return Token(INVALID, keyword);
 }
 
-Lexer::Lexer(const std::string_view input)
-    : input(input), _position(input.begin()) {}
+Lexer::Lexer(const std::string &input)
+    : input(input), _position(this->input.begin()) {}
+
+Lexer::Lexer(const std::fstream &src) : input() {
+
+  // Read file and store it in a string_view
+
+  std::ostringstream ss;
+  ss << src.rdbuf();
+  if (!src.good()) {
+    if (src.eof()) {
+      std::cout << "EOF reached" << std::endl;
+    } else if (src.fail()) {
+      std::cout << "Logical error on i/o operation" << std::endl;
+    } else if (src.bad()) {
+      std::cout << "Read/write error on i/o operation" << std::endl;
+    }
+  }
+  input = ss.str();
+  _position = input.begin();
+}
 
 // NOTE: If no further condition is needed here
 // consider unwrapping this condition
@@ -128,64 +166,52 @@ Token Lexer::get_next_token() {
   case ';':
     ++_position;
     return Token(LINEBREAK, ";");
-    break;
 
   case '=':
     ++_position;
     return Token(ASSIGNMENT, "=");
-    break;
 
     // paired tokens (will be checked in parser)
   case '(':
     ++_position;
     return Token(PARENTHESIS_OPEN, "(");
-    break;
 
   case ')':
     ++_position;
     return Token(PARENTHESIS_CLOSE, ")");
-    break;
 
   case '{':
     ++_position;
     return Token(CURLY_BRACKET_OPEN, "{");
-    break;
 
   case '}':
     ++_position;
     return Token(CURLY_BRACKET_CLOSE, "}");
-    break;
 
   case '[':
     ++_position;
     return Token(BRACKET_OPEN, "[");
-    break;
 
   case ']':
     ++_position;
     return Token(BRACKET_CLOSE, "]");
-    break;
 
     // arithmetic operators
   case '+':
     ++_position;
     return Token(OPERATOR_PLUS, "+");
-    break;
 
   case '-':
     ++_position;
     return Token(OPERATOR_MINUS, "-");
-    break;
 
   case '*':
     ++_position;
     return Token(OPERATOR_MULTIPLY, "*");
-    break;
 
   case '/':
     ++_position;
     return Token(OPERATOR_DIVIDE, "/");
-    break;
 
   case '#': {
 
@@ -194,12 +220,12 @@ Token Lexer::get_next_token() {
 
     // NOTE: Im not sure how safe it is do this
     // specially the second condition
-    if (*endline == '\n' && endline != input.end()) {
-      endline++;
+    if (endline != input.end()) {
+      ++endline;
     }
     _position = endline;
     return Token(COMMENT_SINGLE_LINE, "#");
-  } break;
+  }
 
   case ' ':
   case '\t':
@@ -209,7 +235,6 @@ Token Lexer::get_next_token() {
   case '\r':
     ++_position;
     return Token(SPACE, " ");
-    break;
 
   case '`': {
     // Handle multi line comments which are used with ``` like in markdown
@@ -229,7 +254,7 @@ Token Lexer::get_next_token() {
           !check_consecutive_backticks(closing_comment, input)) {
         // Not a valid multi-line comment
         ++_position;
-        return {INVALID, "\0"};
+        return Token{INVALID, "\0"};
       }
 
       // will check for comment block
@@ -240,9 +265,8 @@ Token Lexer::get_next_token() {
     }
 
     ++_position;
-    return {INVALID, "\0"};
-
-  } break;
+    return Token{INVALID, "\0"};
+  }
   case '\'':
   case '"': {
     auto old_pos = _position;
@@ -287,7 +311,7 @@ Token Lexer::get_next_token() {
         return Token(INVALID, "\0");
       }
 
-      std::string_view::iterator buffer = std::find_if_not(
+      std::string::iterator buffer = std::find_if_not(
           _position, input.end(), [](char ch) { return isalnum(ch); });
 
       // range initialization
@@ -306,8 +330,8 @@ Token Lexer::get_next_token() {
       return Token(NUMBER, number);
     } else { // token could potentially be a keyword
 
-      auto buffer = std::find_if_not(_position, input.end(), isalnum);
-      std::string word = {_position, buffer};
+      const auto buffer = std::find_if_not(_position, input.end(), isalnum);
+      const std::string word = {_position, buffer};
       _position = buffer;
 
       // Check  keyword is valid
@@ -335,4 +359,3 @@ std::vector<Token> Lexer::tokenize() {
   return parsed_tokens;
 }
 
-#endif

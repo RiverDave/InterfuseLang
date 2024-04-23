@@ -1,12 +1,10 @@
 #ifndef LEXER_H
 #define LEXER_H
 #include "./Token.h"
-#include <iostream>
-#include <optional>
-#include <string>
-#include <string_view>
-#include <unordered_map>
+#include "./AST.h"
+#include <fstream>
 #include <vector>
+
 
 
 
@@ -14,9 +12,9 @@
 class Lexer final {
 private:
 
-  const std::string_view input;
-  std::string_view::iterator _position;
-  Token get_next_token();
+  std::string input;
+  std::string::iterator _position;
+
   // std::optional<Token> peek();
   // void consume();
 
@@ -24,7 +22,9 @@ private:
 public:
 
 
-  explicit Lexer(const std::string_view);
+  explicit Lexer(const std::string&);
+  explicit Lexer(const std::fstream&);
+  Token get_next_token();
 
   //helps to classify each sub_token type
   //no discard is used to ensure that the return value is used
@@ -36,4 +36,11 @@ public:
   //inspired in pinecone
   void setup() noexcept;
 };
+
+//To be integrated with the parser(BISON)
+
+static Lexer* lexerInstance = nullptr;
+extern "C" int yylex();
+
+
 #endif

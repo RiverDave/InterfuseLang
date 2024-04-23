@@ -1,2 +1,5 @@
 build/
 build/*
+include/Parser.hpp
+cmake-build-debug/
+cmake-build-debug/*

@@ -1,31 +1,34 @@
 #include "../include/Lexer.h"
 #include "../include/Token.h"
+#include <fstream>
 #include <iostream>
 #include <string>
 
+extern int yyparse();
+extern void initializeLexer();
+
 int main() {
 
-  // input test
-  const std::string srccode = R"(
-# This is a comment
-@var = "Main"
-@name = "John"
+//   // input test
+//   const std::string srccode = R"(
+// # This is a comment
+// @var = "Main"
+// @name = "John"
+//
+// {
+//
+//   procedure main() {
+//     if (true) {
+//       provide @name
+//     }
+// }
+//
+// @x = 10 * 10
+// # This is another comment
+// )";
 
-@x = 10 * 10
-)";
-
-  //move so that it's not copied
-  Lexer lex{std::move(srccode)};
-  std::vector<Token> tokens = lex.tokenize();
-  std::cout << "Input size: " << srccode.size() << "\n";
-
-  // Ignore logging spaces since they bloat the output
-  for (auto &e : tokens) {
-    if (e.getType() == TOKEN_TYPE::SPACE) {
-      continue;
-    }
-    std::cout << e;
-  }
+  initializeLexer();
+  yyparse();
 
   return 0;
 }

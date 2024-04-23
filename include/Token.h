@@ -8,7 +8,7 @@
 
 enum TOKEN_TYPE {
 
-  INVALID, // None of the above, invalid syntax
+  INVALID, // None of the below, invalid syntax
   NUMBER,
   FLOAT,
   BOOLEAN,  // true | false
@@ -67,8 +67,18 @@ class Token {
 
 public:
 
-  Token(TOKEN_TYPE TokenType = INVALID, const std::string &v = "Unknown")
+  explicit Token(TOKEN_TYPE TokenType = INVALID, const std::string &v = "Unknown")
       : type(TokenType), value(v) {}
+
+  Token(const Token& other)
+        : type(other.type), value(other.value) {}
+
+  Token& operator=(const Token& other) {
+    if (this != &other) {
+      // Copy the fields of 'other' into this object
+    }
+    return *this;
+  }
 
   // Used for debugging reasons
   friend std::ostream &operator<<(std::ostream &os, const Token &obj);

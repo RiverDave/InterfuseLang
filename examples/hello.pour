@@ -25,7 +25,7 @@ Its also supported with triple double quotes!
 }
 # or strict mode
 
-functor @myFunction = proc() -> void {
+procedure @myFunction = proc() -> void {
   out("Hello, World!")
 }
 
