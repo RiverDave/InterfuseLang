@@ -12,18 +12,19 @@
 class Lexer final {
 private:
 
-  std::string input;
-  std::string::iterator _position;
 
-  // std::optional<Token> peek();
-  // void consume();
+
 
 
 public:
 
+  std::string input;
+  std::string::iterator _position;
 
   explicit Lexer(const std::string&);
   explicit Lexer(const std::fstream&);
+
+  [[nodiscard]]
   Token get_next_token();
 
   //helps to classify each sub_token type
@@ -31,10 +32,6 @@ public:
   //otherwise a warning will be issued
   [[nodiscard]]
   std::vector<Token> tokenize();
-
-  //used to classify each sub_token type
-  //inspired in pinecone
-  void setup() noexcept;
 };
 
 //To be integrated with the parser(BISON)

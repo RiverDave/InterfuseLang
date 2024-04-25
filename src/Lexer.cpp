@@ -9,49 +9,85 @@
 
 #include "../build/parser.hpp"
 
-
-// Lexer* getLexerInstance(){
-//   if(lexerInstance == nullptr){
-//     //args are hardcoded for now
-//     //should be passed as arguments later on
-//     lexerInstance = new Lexer(std::fstream{"../test/test.pour"});
-//   }
-//   return lexerInstance;
-// }
-
-
+//BISON Interface
 extern "C" int yylex() {
-
-
   if (!lexerInstance) {
     std::fstream file{"../examples/new.pour"};
     lexerInstance = new Lexer(file);
-    std::ostringstream ss;
-    ss << file.rdbuf();
-    std::cout << "File:" << std::endl;
-    std::cout << ss.str() << std::endl;
   }
 
   Token token = lexerInstance->get_next_token();
-  // Ignore all whitespaces and comments tokens
-  while (token.getType() == SPACE || token.getType() == LINEBREAK ||
-         token.getType() == COMMENT_SINGLE_LINE ||
+  // std::cout << token << std::endl;
+
+  // Skip whitespaces, They're not relevant in the parsing process
+  while (token.getType() == SPACE || token.getType() == COMMENT_SINGLE_LINE ||
          token.getType() == COMMENT_MULTI_LINE) {
+
+    if(lexerInstance->_position == lexerInstance->input.end()){
+      return 0;
+    }
+
     token = lexerInstance->get_next_token();
   }
 
-    switch (token.getType()) {
-        case NUMBER:
-          yylval.token = new Token(token);
-          return TKNUMBER;
-        default:
-          return 0;  // Return 0 if no more tokens
-    }
+  switch (token.getType()) {
+  case NUMBER:
+    yylval.token = new Token(token);
+    return TKNUMBER;
 
+  case OPERATOR_PLUS:
+    yylval.token = new Token(token);
+    return TKPLUS;
 
-  // std::cout << "Tokenized: " << token << std::endl;
-  // return token.getType();
+  case OPERATOR_MINUS:
+    yylval.token = new Token(token);
+    return TKMINUS;
+
+  case OPERATOR_MULTIPLY:
+    yylval.token = new Token(token);
+    return TKMULT;
+
+  case OPERATOR_DIVIDE:
+    yylval.token = new Token(token);
+    return TKDIV;
+
+  case KEYWORD_RET:
+    yylval.token = new Token(token);
+    return TKRETURN;
+
+  case CURLY_BRACKET_OPEN:
+    yylval.token = new Token(token);
+    return TKCURLYOPEN;
+
+  case CURLY_BRACKET_CLOSE:
+    yylval.token = new Token(token);
+    return TKCURLYCLOSE;
+
+  case LINEBREAK:
+    yylval.token = new Token(token);
+    return TKLINEBREAK;
+
+  case ASSIGNMENT:
+    yylval.token = new Token(token);
+    return TKASSIGNMENT;
+
+  case IDENTIFIER:
+    yylval.token = new Token(token);
+    return TKIDENTIFIER;
+
+  // case COMMENT_SINGLE_LINE:
+  //   yylval.token = new Token(token);
+  //   return TKSINGLECOMMENT;
+  //
+  // case COMMENT_MULTI_LINE:
+  //   yylval.token = new Token(token);
+  //   return TKMULTICOMMENT;
+  default:
+    return 0; // Return 0 if no more tokens
+  }
 }
+// std::cout << "Tokenized: " << token << std::endl;
+// return token.getType();
 
 // Since this is static it requires to be initialized
 // outside for some reason
@@ -78,6 +114,7 @@ auto check_consecutive_backticks = [](const std::string::iterator &_position,
   int count{};
   for (auto it = _pos; it != input.end(); ++it) {
 
+    //NOTE: This might be redundant, considered we've already checked for the backticks
     if (*it == '`') {
       count++;
       if (count == 3) {
@@ -119,9 +156,8 @@ std::unordered_map<std::string, TOKEN_TYPE> keywordMap = {
     {"do", KEYWORD_LOOP_DO},
     {"true", KEYWORD_TRUE},
     {"false", KEYWORD_FALSE},
-    {"provide", KEYWORD_PROVIDE},
-    {"procedure", KEYWORD_PROCEDURE}
-};
+    {"ret", KEYWORD_RET},
+    {"procedure", KEYWORD_PROCEDURE}};
 
 Token getKeywordType(const std::string &keyword) {
   auto it = keywordMap.find(keyword);
@@ -132,8 +168,10 @@ Token getKeywordType(const std::string &keyword) {
 }
 
 Lexer::Lexer(const std::string &input)
-    : input(input), _position(this->input.begin()) {}
+    : input(input), _position(this->input.begin()) {
+    }
 
+//FIXME: This is getting called twice for some reason
 Lexer::Lexer(const std::fstream &src) : input() {
 
   // Read file and store it in a string_view
@@ -218,8 +256,6 @@ Token Lexer::get_next_token() {
     // Look for an endline '\n' and ignore all chars in between
     auto endline = std::find(_position, input.end(), '\n');
 
-    // NOTE: Im not sure how safe it is do this
-    // specially the second condition
     if (endline != input.end()) {
       ++endline;
     }
@@ -235,6 +271,9 @@ Token Lexer::get_next_token() {
   case '\r':
     ++_position;
     return Token(SPACE, " ");
+
+  case EOF:
+    return Token(T_EOF, "EOF");
 
   case '`': {
     // Handle multi line comments which are used with ``` like in markdown
@@ -294,7 +333,7 @@ Token Lexer::get_next_token() {
 
   default:
 
-    // In case is variable or any other Pourer keyword
+    // In case is variable 
     if (curr_char == '@') {
 
       // since we know we got an alphabetic character
@@ -312,7 +351,7 @@ Token Lexer::get_next_token() {
       }
 
       std::string::iterator buffer = std::find_if_not(
-          _position, input.end(), [](char ch) { return isalnum(ch); });
+          _position, input.end(), [](char ch) { return isalnum(ch) || ch == '_'; });
 
       // range initialization
       std::string identifier = {_position, buffer};
@@ -358,4 +397,3 @@ std::vector<Token> Lexer::tokenize() {
 
   return parsed_tokens;
 }
-

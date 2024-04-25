@@ -27,6 +27,14 @@ int main() {
 // # This is another comment
 // )";
 
+  // Lexer lex {std::string{"{}"}};
+  // auto t = lex.tokenize();
+  //
+  // for (auto &i : t) {
+  //   std::cout << i << std::endl;
+  // }
+
+
   initializeLexer();
   yyparse();
 

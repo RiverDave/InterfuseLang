@@ -15,7 +15,7 @@ enum TOKEN_TYPE {
   ACCESSOR, // dots(.)  -> not sure about this
   TYPE_SPECIFIER,
   STRING,
-  IDENTIFIER, // variables, syntactically begin with a '$'.
+  IDENTIFIER, // variables, syntactically begin with a '@'.
               //
   KEYWORD,    // restricted keywords?, i need to research about this
 
@@ -26,9 +26,9 @@ enum TOKEN_TYPE {
   KEYWORD_TRUE,
   KEYWORD_FALSE,
 
-  //Function keywords
+  // Function keywords
   KEYWORD_PROCEDURE,
-  KEYWORD_PROVIDE,
+  KEYWORD_RET, // aka return
 
   // Comment types
   COMMENT_SINGLE_LINE,
@@ -39,8 +39,7 @@ enum TOKEN_TYPE {
   KEYWORD_LOOP_WHILE,
   KEYWORD_LOOP_DO,
 
-  //Bracket pairs tokens
-
+  // Bracket pairs tokens
   PARENTHESIS_OPEN,
   PARENTHESIS_CLOSE,
   BRACKET_OPEN,
@@ -48,8 +47,8 @@ enum TOKEN_TYPE {
   CURLY_BRACKET_OPEN,
   CURLY_BRACKET_CLOSE,
 
-  //basic arithmetic operators
-  OPERATOR_PLUS, 
+  // basic arithmetic operators
+  OPERATOR_PLUS,
   OPERATOR_MINUS,
   OPERATOR_MULTIPLY,
   OPERATOR_DIVIDE,
@@ -61,30 +60,32 @@ enum TOKEN_TYPE {
 
   // data types(to be used much later)
   DATA_TYPE,
+
+  T_EOF, // Denotes end of file
 };
 
 class Token {
 
 public:
-
-  explicit Token(TOKEN_TYPE TokenType = INVALID, const std::string &v = "Unknown")
+  explicit Token(TOKEN_TYPE TokenType = INVALID,
+                 const std::string &v = "Unknown")
       : type(TokenType), value(v) {}
 
-  Token(const Token& other)
-        : type(other.type), value(other.value) {}
+  Token(const Token &other) : type(other.type), value(other.value) {}
 
-  Token& operator=(const Token& other) {
+  Token &operator=(const Token &other) {
     if (this != &other) {
-      // Copy the fields of 'other' into this object
+      type = other.type;
+      value = other.value;
     }
     return *this;
   }
 
   // Used for debugging reasons
   friend std::ostream &operator<<(std::ostream &os, const Token &obj);
-  
-  TOKEN_TYPE getType() { return type; };
-  const std::string getValue() { return value; };
+
+  [[nodiscard]]TOKEN_TYPE getType() { return type; };
+  [[nodiscard]]const std::string getValue() { return value; };
 
 private:
   // vals
@@ -120,7 +121,7 @@ private:
       XTOKEN_CASE(KEYWORD_LOOP_DO)
       XTOKEN_CASE(KEYWORD_LOOP_WHILE)
       XTOKEN_CASE(KEYWORD_PROCEDURE)
-      XTOKEN_CASE(KEYWORD_PROVIDE)
+      XTOKEN_CASE(KEYWORD_RET)
       XTOKEN_CASE(PARENTHESIS_OPEN)
       XTOKEN_CASE(PARENTHESIS_CLOSE)
       XTOKEN_CASE(BRACKET_OPEN)
@@ -135,6 +136,7 @@ private:
       XTOKEN_CASE(COMMENT_MULTI_LINE)
       XTOKEN_CASE(LINEBREAK)
       XTOKEN_CASE(SPACE)
+      XTOKEN_CASE(T_EOF)
     default:
       os << "Type: Unknown";
     }

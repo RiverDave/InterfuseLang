@@ -2,14 +2,14 @@
 @var = "Main"
 @name = "John"
 
-{
+
 
   procedure main() {
     if (true) {
       provide @name
     }
   }
-}
+
 
 @x = 10 * 10
 # This is another comment

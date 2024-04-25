@@ -23,6 +23,7 @@ class Node
 {
 public:
     virtual ~Node(){}
+
     // Will be used in each node to then be export IR to bytecode through llvm's API
     //virtual llvm::Value* codeGen(CodeGenContext& context);
 };
@@ -42,6 +43,23 @@ public:
     NBlock(){}
     //virtual llvm::Value* codeGen(CodeGenContext& context);
 };
+
+class NExpressionStatement : public NStatement
+{
+public:
+    NExpression& expression;
+    explicit NExpressionStatement(NExpression& expression) : expression(expression){}
+    //virtual llvm::Value* codeGen(CodeGenContext& context);
+};
+
+class NReturnStatement : public NStatement {
+public:
+	NExpression& expression;
+	explicit NReturnStatement(NExpression& expression) : 
+		expression(expression) { }
+	// virtual llvm::Value* codeGen(CodeGenContext& context);
+};
+
 
 
 class NInteger : public NExpression
@@ -65,24 +83,31 @@ public:
 
 class NString : public  NExpression
 {
-    std::string name;
+ //   std::string name;
 
     //It would be better to allocate memory on the heap for this member
     //sm_ptr or shared?
     std::string value;
-    explicit NString(const std::string &value) :name(value){}
+    explicit NString(const std::string &value) :value(value){}
     //virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
 class NVariableDeclaration : public Node
 {
+
 public:
+
     NIdentifier* id;
+    //NOTE: assignment shall be optional!!
     NExpression* assignmentExpr;
     NVariableDeclaration(NIdentifier* id, NExpression* assignmentExpr)
         : id(id), assignmentExpr(assignmentExpr) {}
     //virtual llvm::Value* codeGen(CodeGenContext& context);
+
 };
+
+
+
 
 
 
