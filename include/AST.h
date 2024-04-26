@@ -98,7 +98,7 @@ class NVariableDeclaration : public Node
 public:
 
     NIdentifier* id;
-    //NOTE: assignment shall be optional!!
+    //TODO: assignment shall be optional!!, include type as well
     NExpression* assignmentExpr;
     NVariableDeclaration(NIdentifier* id, NExpression* assignmentExpr)
         : id(id), assignmentExpr(assignmentExpr) {}

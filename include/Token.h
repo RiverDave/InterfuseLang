@@ -53,13 +53,23 @@ enum TOKEN_TYPE {
   OPERATOR_MULTIPLY,
   OPERATOR_DIVIDE,
 
+  DOT,
+  COMMA,
+  ARROW,
+  COLON,
+
   ASSIGNMENT,
   LINEBREAK, // -> (;) |  need to thing about this, do i consider forcing the
              // user to use semis?
   SPACE,
 
-  // data types(to be used much later)
   DATA_TYPE,
+  DATA_TYPE_CHAR,
+  DATA_TYPE_INT,
+  DATA_TYPE_BOOL,
+  DATA_TYPE_DOUBLE,
+  DATA_TYPE_STRING,
+  DATA_TYPE_FLOAT,
 
   T_EOF, // Denotes end of file
 };
@@ -134,6 +144,11 @@ private:
       XTOKEN_CASE(OPERATOR_DIVIDE)
       XTOKEN_CASE(COMMENT_SINGLE_LINE)
       XTOKEN_CASE(COMMENT_MULTI_LINE)
+      XTOKEN_CASE(DOT)
+      XTOKEN_CASE(COMMA)
+      XTOKEN_CASE(ARROW)
+      XTOKEN_CASE(COLON)
+      XTOKEN_CASE(DATA_TYPE)
       XTOKEN_CASE(LINEBREAK)
       XTOKEN_CASE(SPACE)
       XTOKEN_CASE(T_EOF)

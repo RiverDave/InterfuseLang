@@ -16,7 +16,7 @@
     extern int yylex();
     void yyerror(const char* err){printf("ERROR: %s \n", err);}
 
-//TODO: pass fstream ot initialize lexer
+//TODO: pass fstream to initialize lexer directly from here
     void initializeLexer(){
       printf("Initializing lexer\n");
       if(!lexerInstance){
@@ -45,7 +45,7 @@
   NStatement *stmt;
   NIdentifier *id;
   NVariableDeclaration *var_decl;
-  std::vector<NVariableDeclaration*> *var_decls;
+	std::vector<NVariableDeclaration*> *varvec;
   std::vector<NExpression*> *exprs;
   //std::string *str;
   NBlock *stmts;
@@ -62,18 +62,28 @@
 %token<token> TKNUMBER
 %token<token> TKPLUS TKMINUS TKMULT TKDIV
 %token<token> TKRETURN 
-%token<token> TKLINEBREAK 
+%token<token> TKCOMMA TKDOT TKARROW TKCOLON
+%token<token> TKLINEBREAK  //statement delimiter
 %token<token> TKASSIGNMENT 
 //%token<token> TKSINGLECOMMENT TKMULTICOMMENT
 
-//Involved in variables & functions
 %token<token> TKIDENTIFIER 
 //denote scopes/blocks
+%token<token> TKDATATYPE 
 %token<token> TKCURLYOPEN TKCURLYCLOSE
+%token<token> TKPAROPEN TKPARCLOSE
+%token<token> TKFUNCTION_KEY
 
-%type<stmt> stmt 
+//data types
+
+
+%type<id> id
+//fn params are generally identifiers
+%type<varvec> fn_args
+//function call can be expressions
+%type<exprs> fn_call_args
+%type<stmt> stmt var_decl fn_decl
 %type<block> program stmts block
-%type<var_decl> var_decl
 //%type<var_decls> var_decls //not quite sure bout this
 %type<expr> expr
 
@@ -94,6 +104,7 @@ program:
     ;
 
 stmts: 
+     //NOTE: This defines our statement delimiter (through ;)
      stmt TKLINEBREAK
      {
         //Initialize new block
@@ -101,18 +112,17 @@ stmts:
         //push the statement into the block !!
         $$ = new NBlock();
         $$->statements.push_back($<stmt>1);
-
      } | 
-     stmts stmt
+     stmts stmt TKLINEBREAK
      {
         //TODO: Elaborate further this solution(specifically)
         $$ = $<stmts>1;
         $1->statements.push_back($<stmt>2);
-     }|
+     } |
 
-    stmts stmts
-    {
-    }|
+//    stmts stmts
+    //{
+//    }|
 
     block
     {
@@ -120,34 +130,81 @@ stmts:
      ;
 
 stmt:
+
     expr
     {
         $$ = new NExpressionStatement(*$1);
         std::cout << "Parsed exp" << std::endl;
     } |
+
     var_decl
     {
         //$$ = $1;
         std::cout << "Parsed var_decl" << std::endl;
     } |
+
     TKRETURN expr 
     {
         $$ = new NReturnStatement(*$2);
-    }  
+        std::cout << "Parsed return exp" << std::endl;
+    } |
+
+    fn_decl
+    {
+        //$$ = $1;
+        std::cout << "Parsed fn_decl" << std::endl;
+    }
+    ;
+
+id : TKIDENTIFIER
+    {
+        //$$ = new NIdentifier(*$1);
+//        std::cout << "Parsed id" << std::endl;
+    }
     ;
 
 var_decl:
 
-    TKIDENTIFIER 
-    {
-    
-        //$$ = new NVariableDeclaration(*$1);
-    } | 
-    TKIDENTIFIER TKASSIGNMENT expr
+    TKIDENTIFIER TKCOLON TKDATATYPE TKASSIGNMENT expr
     {
         //NOTE: This ast assumption is correct
+        //handle data type as well inside ast
         //$$ = new NVariableDeclaration(*$1, *$3);
     } 
+
+    |
+
+//empty var_decl
+    TKIDENTIFIER TKCOLON TKDATATYPE
+    {
+        //$$ = new NVariableDeclaration(*$1);
+    }
+    ;
+
+fn_decl:
+    TKFUNCTION_KEY id TKPAROPEN fn_args TKPARCLOSE TKARROW TKDATATYPE block
+    {
+        //$$ = new NFunctionDeclaration(*$1, *$3, $5);
+    }
+    ;
+
+fn_args:
+       //empty*
+       {
+
+       }|
+    var_decl
+    {
+        std::cout << "Parsed fn_args" << std::endl;
+        //$$ = new std::vector<NVariableDeclaration*>();
+        //$$->push_back(new NVariableDeclaration(*$1));
+    } |
+    fn_args TKCOMMA var_decl
+    {
+
+        //$$ = $1;
+        //$$->push_back(new NVariableDeclaration(*$3));
+    }
     ;
 
 block :
@@ -175,16 +232,27 @@ block :
     }
     ;
 // terminal obj (TKNUMBER) represents the token OBJECT preceded by the non-terminal obj (expr)
-expr: TKNUMBER 
-    {
-    } |
+expr:
 
-    expr TKPLUS expr
+    id TKASSIGNMENT expr
     {
 
-    } |
-  
-    expr TKMINUS expr
+    } |  
+
+    id TKPAROPEN fn_call_args TKPARCLOSE
+    {
+      std::cout << "Called fn" << std::endl;
+    } |  
+
+    id
+    {
+    std::cout << "Parsed id" << std::endl;
+    //NOTE: Since this is being parsed as an exp and as well as a variable declaration
+    //There should be a function that checks if the id is defined within current scope(locals)
+
+    } |  
+
+TKNUMBER 
     {
 
     } |
@@ -197,7 +265,39 @@ expr: TKNUMBER
     expr TKDIV expr
     {
 
-    } 
+    } | 
+
+    expr TKPLUS expr
+    {
+
+    } |
+  
+    expr TKMINUS expr
+    {
+
+    } |
+
+    TKPAROPEN expr TKPARCLOSE
+    {
+
+    }
+    ;
+
+fn_call_args:
+
+    {
+
+    } | 
+    expr
+    {
+
+    } |
+    
+    fn_call_args TKCOMMA expr
+    {
+
+      std::cout << "Parsed fn_call_args" << std::endl;
+    }
     ;
 
 %%

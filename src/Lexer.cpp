@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -9,7 +10,7 @@
 
 #include "../build/parser.hpp"
 
-//BISON Interface
+// BISON Interface
 extern "C" int yylex() {
   if (!lexerInstance) {
     std::fstream file{"../examples/new.pour"};
@@ -17,20 +18,24 @@ extern "C" int yylex() {
   }
 
   Token token = lexerInstance->get_next_token();
-  // std::cout << token << std::endl;
 
   // Skip whitespaces, They're not relevant in the parsing process
   while (token.getType() == SPACE || token.getType() == COMMENT_SINGLE_LINE ||
          token.getType() == COMMENT_MULTI_LINE) {
 
-    if(lexerInstance->_position == lexerInstance->input.end()){
+    if (lexerInstance->_position == lexerInstance->input.end()) {
       return 0;
     }
 
     token = lexerInstance->get_next_token();
   }
 
+
+  // std:: cout << token << std::endl;
+
+  // Token types defined in bison file
   switch (token.getType()) {
+
   case NUMBER:
     yylval.token = new Token(token);
     return TKNUMBER;
@@ -63,6 +68,30 @@ extern "C" int yylex() {
     yylval.token = new Token(token);
     return TKCURLYCLOSE;
 
+  case PARENTHESIS_OPEN:
+    yylval.token = new Token(token);
+    return TKPAROPEN;
+
+  case PARENTHESIS_CLOSE:
+    yylval.token = new Token(token);
+    return TKPARCLOSE;
+
+  case COMMA:
+    yylval.token = new Token(token);
+    return TKCOMMA;
+
+  case DOT:
+    yylval.token = new Token(token);
+    return TKDOT;
+
+  case COLON:
+    yylval.token = new Token(token);
+    return TKCOLON;
+
+  case ARROW:
+    yylval.token = new Token(token);
+    return TKARROW;
+
   case LINEBREAK:
     yylval.token = new Token(token);
     return TKLINEBREAK;
@@ -74,6 +103,14 @@ extern "C" int yylex() {
   case IDENTIFIER:
     yylval.token = new Token(token);
     return TKIDENTIFIER;
+
+  case KEYWORD_PROCEDURE:
+    yylval.token = new Token(token);
+    return TKFUNCTION_KEY;
+
+  case DATA_TYPE:
+    yylval.token = new Token(token);
+    return TKDATATYPE;
 
   // case COMMENT_SINGLE_LINE:
   //   yylval.token = new Token(token);
@@ -101,7 +138,7 @@ inline bool isWhiteSpace(const char ch) {
 inline bool isIdentifier(const char ch) {
   return isalpha(ch) || ch == '@'; // In theory identifiers should be made only
                                    // by alphabetic characters in case of
-                                   // variables they'll start with a '$' sign
+                                   // variables they'll start with a '@' sign
 }
 inline bool isString(const char ch) { return ch == '"' || ch == '\''; }
 // Will ensure there are 3 consecutive backticks to demark it as multiblock
@@ -114,7 +151,8 @@ auto check_consecutive_backticks = [](const std::string::iterator &_position,
   int count{};
   for (auto it = _pos; it != input.end(); ++it) {
 
-    //NOTE: This might be redundant, considered we've already checked for the backticks
+    // NOTE: This might be redundant, considered we've already checked for the
+    // backticks
     if (*it == '`') {
       count++;
       if (count == 3) {
@@ -128,6 +166,7 @@ auto check_consecutive_backticks = [](const std::string::iterator &_position,
 };
 
 auto move_itr_bounds = [](const std::string &input, auto &_itr) -> void {
+
   // When working with the C++ container library, the proper type for
   // the difference between iterators is the member typedef
   // difference_type, which is often synonymous with std::ptrdiff_t.
@@ -137,6 +176,7 @@ auto move_itr_bounds = [](const std::string &input, auto &_itr) -> void {
   } else {
     return;
   }
+
 };
 
 // Should be able to find closing pair like -> "" , ''
@@ -146,7 +186,7 @@ auto move_itr_bounds = [](const std::string &input, auto &_itr) -> void {
 
 // determines type of keyword
 
-std::unordered_map<std::string, TOKEN_TYPE> keywordMap = {
+static const std::unordered_map<std::string, TOKEN_TYPE> keywordMap = {
 
     {"if", KEYWORD_IF},
     {"else", KEYWORD_ELSE},
@@ -157,21 +197,36 @@ std::unordered_map<std::string, TOKEN_TYPE> keywordMap = {
     {"true", KEYWORD_TRUE},
     {"false", KEYWORD_FALSE},
     {"ret", KEYWORD_RET},
-    {"procedure", KEYWORD_PROCEDURE}};
+    {"fn", KEYWORD_PROCEDURE},
 
-Token getKeywordType(const std::string &keyword) {
-  auto it = keywordMap.find(keyword);
-  if (it != keywordMap.end()) {
+
+};
+
+static const std::unordered_map<std::string, TOKEN_TYPE> dataTypeMap = {
+
+    {"double", DATA_TYPE},
+    {"int", DATA_TYPE},
+    {"bool", DATA_TYPE},
+    {"str", DATA_TYPE},
+    {"float", DATA_TYPE},
+    {"char", DATA_TYPE}
+  };
+
+
+Token checkKeywordFromMap(
+    const std::string &keyword,
+    const std::unordered_map<std::string, TOKEN_TYPE> &mp) {
+  auto it = mp.find(keyword);
+  if (it != mp.end()) {
     return Token(it->second, keyword);
   }
   return Token(INVALID, keyword);
 }
 
 Lexer::Lexer(const std::string &input)
-    : input(input), _position(this->input.begin()) {
-    }
+    : input(input), _position(this->input.begin()) {}
 
-//FIXME: This is getting called twice for some reason
+// FIXME: This is getting called twice for some reason
 Lexer::Lexer(const std::fstream &src) : input() {
 
   // Read file and store it in a string_view
@@ -194,6 +249,16 @@ Lexer::Lexer(const std::fstream &src) : input() {
 // NOTE: If no further condition is needed here
 // consider unwrapping this condition
 inline bool isNumeric(char ch) { return isdigit(ch); }
+
+std::optional<char> Lexer::check_next_char() {
+
+  const std::optional<char> next = *_position;
+
+  if (next.has_value()) {
+    return next.value();
+  }
+  return std::nullopt;
+}
 
 Token Lexer::get_next_token() {
 
@@ -239,9 +304,29 @@ Token Lexer::get_next_token() {
     ++_position;
     return Token(OPERATOR_PLUS, "+");
 
-  case '-':
-    ++_position;
+  case '-': {
+      ++_position;
+    auto next = check_next_char();
+    if (next.has_value()) {
+      if (next == '>') {
+        ++_position;
+        return Token(ARROW, "->");
+      }
+    }
+  }
     return Token(OPERATOR_MINUS, "-");
+
+  case ':':
+    ++_position;
+    return Token(COLON, ":");
+
+  case '.':
+    ++_position;
+    return Token(DOT, ".");
+
+  case ',':
+    ++_position;
+    return Token(COMMA, ",");
 
   case '*':
     ++_position;
@@ -333,7 +418,7 @@ Token Lexer::get_next_token() {
 
   default:
 
-    // In case is variable 
+    // In case is variable
     if (curr_char == '@') {
 
       // since we know we got an alphabetic character
@@ -350,8 +435,9 @@ Token Lexer::get_next_token() {
         return Token(INVALID, "\0");
       }
 
-      std::string::iterator buffer = std::find_if_not(
-          _position, input.end(), [](char ch) { return isalnum(ch) || ch == '_'; });
+      std::string::iterator buffer =
+          std::find_if_not(_position, input.end(),
+                           [](char ch) { return isalnum(ch) || ch == '_'; });
 
       // range initialization
       std::string identifier = {_position, buffer};
@@ -374,7 +460,25 @@ Token Lexer::get_next_token() {
       _position = buffer;
 
       // Check  keyword is valid
-      return getKeywordType(word);
+      auto tok = checkKeywordFromMap(word, keywordMap);
+      if (tok.getType() != INVALID) {
+        return tok;
+      } else {
+        tok = checkKeywordFromMap(word, dataTypeMap);
+
+        if (tok.getType() != INVALID)
+        {
+          // not very efficient, I know
+          return Token(DATA_TYPE, tok.getValue());
+        }
+
+
+
+
+
+      }
+
+      return Token(INVALID, "\0");
     }
     break;
     // token could be a keyword

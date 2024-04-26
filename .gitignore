@@ -1,10 +1,13 @@
 build/
 build/*
 .DS_Store
-.idea
+
+.idea/
+.idea/*
+
 .cache
-.cache/
-.*
+.cache/*
+
 include/Parser.hpp
 cmake-build-debug/
 cmake-build-debug/*

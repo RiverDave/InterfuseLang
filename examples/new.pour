@@ -1,1 +1,15 @@
-@var = 23 + 23;
+# @var : int = 23;
+# @my_var : int;
+
+# This is a function declaration.
+fn @doMath(@a: int, @b: int) -> int {
+    ret @a + @b * 2;
+};
+
+# Main entry point(optional)
+fn @main() -> int {
+    @my_var = 45;
+    @y = @doMath(@var, 23);
+
+    ret 0;
+};

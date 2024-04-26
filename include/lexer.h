@@ -2,6 +2,7 @@
 #define LEXER_H
 #include "./Token.h"
 #include "./AST.h"
+#include <optional>
 #include <fstream>
 #include <vector>
 
@@ -26,6 +27,8 @@ public:
 
   [[nodiscard]]
   Token get_next_token();
+
+  std::optional<char> check_next_char();
 
   //helps to classify each sub_token type
   //no discard is used to ensure that the return value is used
