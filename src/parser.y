@@ -16,25 +16,8 @@
     extern int yylex();
     void yyerror(const char* err){printf("ERROR: %s \n", err);}
 
-//TODO: pass fstream to initialize lexer directly from here
-    void initializeLexer(){
-      printf("Initializing lexer\n");
-      if(!lexerInstance){
-
-        std::fstream file{"../examples/new.pour"};
-        if (!file.is_open()) {
-            perror("Failed to open file\n");
-            // handle error
-        } else {
-            lexerInstance = new Lexer(file);
-        }
-        
-      }
-
-    }
 
 %}
-
 
 
 %union {
@@ -47,6 +30,15 @@
   NVariableDeclaration *var_decl;
 	std::vector<NVariableDeclaration*> *varvec;
   std::vector<NExpression*> *exprs;
+
+//an if stmts can contain multiple expressions and blocks
+//This type will be changed later(its already defined in the ast)
+  NExpression *if_stmt;
+  NExpression *else_stmt;
+
+  //for loop stmt
+  NExpression *for_stmt;
+
   //std::string *str;
   NBlock *stmts;
   Token* token;
@@ -59,20 +51,25 @@
 //%token <token> KEYWORD KEYWORD_IF KEYWORD_ELSE KEYWORD_ELSE_IF KEYWORD_TRUE KEYWORD_FALSE
 //%token <token> KEYWORD_LOOP_FOR KEYWORD_LOOP_DO KEYWORD_LOOP_WHILE 
 //%token <token>  KEYWORD_PROCEDURE KEYWORD_PROVIDE
-%token<token> TKNUMBER
+%token<token> TKNUMBER TKDOUBLE
 %token<token> TKPLUS TKMINUS TKMULT TKDIV
 %token<token> TKRETURN 
-%token<token> TKCOMMA TKDOT TKARROW TKCOLON
+%token<token> TKCOMMA TKDOT TKARROW TKCOLON TKRANGE_INCLUSIVE 
 %token<token> TKLINEBREAK  //statement delimiter
 %token<token> TKASSIGNMENT 
-//%token<token> TKSINGLECOMMENT TKMULTICOMMENT
+//comparison operators
+%token<token> TKLESS TKGREATER TKLESS_EQUAL TKGREATER_EQUAL TKEQUAL TKNOT_EQUAL
+%token<token> TKAND TKOR
+%token<token> TKNEGATION
 
 %token<token> TKIDENTIFIER 
-//denote scopes/blocks
 %token<token> TKDATATYPE 
 %token<token> TKCURLYOPEN TKCURLYCLOSE
 %token<token> TKPAROPEN TKPARCLOSE
 %token<token> TKFUNCTION_KEY
+%token<token> TKIF TKELSE TKELSEIF 
+//loop stuff
+%token<token> TKFOR TKIN
 
 //data types
 
@@ -82,14 +79,17 @@
 %type<varvec> fn_args
 //function call can be expressions
 %type<exprs> fn_call_args
-%type<stmt> stmt var_decl fn_decl
+%type<stmt> stmt var_decl fn_decl 
+%type<if_stmt> if_stmt else_stmt
+%type<for_stmt> for_stmt
 %type<block> program stmts block
 //%type<var_decls> var_decls //not quite sure bout this
-%type<expr> expr
+%type<expr> expr numeric comparison
 
 
 %left TKPLUS TKMINUS
 %right TKMULT TKDIV
+%left TKLESS TKGREATER TKLESS_EQUAL TKGREATER_EQUAL TKEQUAL TKNOT_EQUAL
 
 %start program
 
@@ -120,10 +120,6 @@ stmts:
         $1->statements.push_back($<stmt>2);
      } |
 
-//    stmts stmts
-    //{
-//    }|
-
     block
     {
     }
@@ -153,6 +149,17 @@ stmt:
     {
         //$$ = $1;
         std::cout << "Parsed fn_decl" << std::endl;
+    } | 
+    if_stmt
+    {
+        //$$ = $1;
+        std::cout << "Parsed if_stmt" << std::endl;
+    } |
+
+    for_stmt
+    {
+        //$$ = $1;
+        std::cout << "Parsed for_stmt" << std::endl;
     }
     ;
 
@@ -195,7 +202,6 @@ fn_args:
        }|
     var_decl
     {
-        std::cout << "Parsed fn_args" << std::endl;
         //$$ = new std::vector<NVariableDeclaration*>();
         //$$->push_back(new NVariableDeclaration(*$1));
     } |
@@ -210,28 +216,74 @@ fn_args:
 block :
     TKCURLYOPEN stmt TKCURLYCLOSE
     {
-        std::cout << "Parsed block " <<std::endl;
         //$$ = new NBlock();
         //$$->statements.push_back($2);
     } |
     TKCURLYOPEN stmts TKCURLYCLOSE
     {
-        std::cout << "Parsed block " <<std::endl;
         //$$ = $2;
     } |
     TKCURLYOPEN expr TKCURLYCLOSE
     {
-        std::cout << "Parsed block " <<std::endl;
         //$$ = new NBlock();
         //$$->statements.push_back(new NExpressionStatement(*$2));
     } |
     TKCURLYOPEN TKCURLYCLOSE
     {
-        std::cout << "Parsed block " <<std::endl;
     //    $$ = new NBlock();
     }
     ;
-// terminal obj (TKNUMBER) represents the token OBJECT preceded by the non-terminal obj (expr)
+
+for_stmt:
+
+//TODO: id wont be a var decl in this case but rather a local defined within the loop, in the ast 
+//we should check if the id is defined within the current scope
+//inclusive range: for @i in 1 := 10 {...
+    TKFOR id TKIN expr TKRANGE_INCLUSIVE expr block
+    {
+
+        //$$ = new NForStatement(*$2, $4, $5);
+    } | 
+
+//Non inclusive range: for @i in 1 : 10 {...
+    TKFOR id TKIN expr TKCOLON expr block
+    {
+
+        //$$ = new NForStatement(*$2, $4, $5);
+    }
+    ;
+
+if_stmt:
+    TKIF expr block 
+    {
+        //std::cout << "Parsed if_stmt" << std::endl;
+        //$$ = new NIfStatement(*$2, $3, $4);
+    } |
+
+    TKIF expr block else_stmt
+    {
+        //$$ = new NIfStatement(*$2, $3, $4);
+    }
+    ;
+
+else_stmt:
+    TKELSE if_stmt
+    {
+       // std::cout << "Parsed else_if_stmt" << std::endl;
+        //$$ = new NElseIfStatement(*$2);
+    }
+    |
+    TKELSE block
+    {
+        //$$ = new NElseStatement($2);
+    }
+    |
+    /* empty */
+    {
+        //$$ = nullptr;
+    }
+    ;
+
 expr:
 
     id TKASSIGNMENT expr
@@ -252,7 +304,7 @@ expr:
 
     } |  
 
-TKNUMBER 
+numeric 
     {
 
     } |
@@ -280,6 +332,27 @@ TKNUMBER
     TKPAROPEN expr TKPARCLOSE
     {
 
+    } |
+
+    expr comparison expr
+    {
+      std::cout << "Parsed comparison" << std::endl;
+
+    } |
+
+    negation expr
+    {
+      std::cout << "Parsed negation" << std::endl;
+    }
+    ;
+
+numeric:
+    TKNUMBER
+    {
+    } | 
+    TKDOUBLE
+    {
+
     }
     ;
 
@@ -298,6 +371,23 @@ fn_call_args:
 
       std::cout << "Parsed fn_call_args" << std::endl;
     }
+    ;
+
+
+negation : TKNEGATION
+    {
+    }
+    ;
+
+comparison: 
+    TKLESS {  } 
+    | TKGREATER {  } 
+    | TKLESS_EQUAL {  } 
+    | TKGREATER_EQUAL {  } 
+    | TKEQUAL {  } 
+    | TKNOT_EQUAL {  } 
+    | TKAND {  } 
+    | TKOR {  }
     ;
 
 %%

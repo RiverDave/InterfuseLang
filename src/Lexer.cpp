@@ -30,8 +30,7 @@ extern "C" int yylex() {
     token = lexerInstance->get_next_token();
   }
 
-
-  // std:: cout << token << std::endl;
+  // std::cout << token << std::endl;
 
   // Token types defined in bison file
   switch (token.getType()) {
@@ -39,6 +38,10 @@ extern "C" int yylex() {
   case NUMBER:
     yylval.token = new Token(token);
     return TKNUMBER;
+
+  case DOUBLE:
+    yylval.token = new Token(token);
+    return TKDOUBLE;
 
   case OPERATOR_PLUS:
     yylval.token = new Token(token);
@@ -88,6 +91,10 @@ extern "C" int yylex() {
     yylval.token = new Token(token);
     return TKCOLON;
 
+  case RANGE_INCLUSIVE:
+    yylval.token = new Token(token);
+    return TKRANGE_INCLUSIVE;
+
   case ARROW:
     yylval.token = new Token(token);
     return TKARROW;
@@ -111,6 +118,60 @@ extern "C" int yylex() {
   case DATA_TYPE:
     yylval.token = new Token(token);
     return TKDATATYPE;
+
+  case KEYWORD_IF:
+    yylval.token = new Token(token);
+    return TKIF;
+
+  case KEYWORD_ELSE:
+    yylval.token = new Token(token);
+    return TKELSE;
+
+  case KEYWORD_ELSE_IF:
+    yylval.token = new Token(token);
+    return TKELSEIF;
+
+  case KEYWORD_LOOP_FOR:
+    yylval.token = new Token(token);
+    return TKFOR;
+
+  case KEYWORD_LOOP_IN:
+    yylval.token = new Token(token);
+    return TKIN;
+    // operator stuff
+  case OPERATOR_EQUALS:
+    yylval.token = new Token(token);
+    return TKEQUAL;
+
+  case OPERATOR_LESS_THAN:
+    yylval.token = new Token(token);
+    return TKLESS;
+
+  case OPERATOR_LESS_THAN_EQUALS:
+    yylval.token = new Token(token);
+    return TKLESS_EQUAL;
+
+  case OPERATOR_GREATER_THAN:
+    yylval.token = new Token(token);
+    return TKGREATER;
+
+  case OPERATOR_GREATER_THAN_EQUALS:
+    yylval.token = new Token(token);
+    return TKGREATER_EQUAL;
+
+  case OPERATOR_NOT_EQUALS:
+    yylval.token = new Token(token);
+    return TKNOT_EQUAL;
+  case OPERATOR_AND:
+    yylval.token = new Token(token);
+    return TKAND;
+  case OPERATOR_OR:
+    yylval.token = new Token(token);
+    return TKOR;
+
+  case OPERATOR_NEGATION:
+    yylval.token = new Token(token);
+    return TKNEGATION;
 
   // case COMMENT_SINGLE_LINE:
   //   yylval.token = new Token(token);
@@ -166,7 +227,6 @@ auto check_consecutive_backticks = [](const std::string::iterator &_position,
 };
 
 auto move_itr_bounds = [](const std::string &input, auto &_itr) -> void {
-
   // When working with the C++ container library, the proper type for
   // the difference between iterators is the member typedef
   // difference_type, which is often synonymous with std::ptrdiff_t.
@@ -176,7 +236,6 @@ auto move_itr_bounds = [](const std::string &input, auto &_itr) -> void {
   } else {
     return;
   }
-
 };
 
 // Should be able to find closing pair like -> "" , ''
@@ -188,30 +247,19 @@ auto move_itr_bounds = [](const std::string &input, auto &_itr) -> void {
 
 static const std::unordered_map<std::string, TOKEN_TYPE> keywordMap = {
 
-    {"if", KEYWORD_IF},
-    {"else", KEYWORD_ELSE},
-    {"elif", KEYWORD_ELSE_IF},
-    {"for", KEYWORD_LOOP_FOR},
-    {"while", KEYWORD_LOOP_WHILE},
-    {"do", KEYWORD_LOOP_DO},
-    {"true", KEYWORD_TRUE},
-    {"false", KEYWORD_FALSE},
-    {"ret", KEYWORD_RET},
+    {"if", KEYWORD_IF},        {"else", KEYWORD_ELSE},
+    {"elif", KEYWORD_ELSE_IF}, {"for", KEYWORD_LOOP_FOR},
+    {"in", KEYWORD_LOOP_IN},   {"while", KEYWORD_LOOP_WHILE},
+    {"do", KEYWORD_LOOP_DO},   {"true", KEYWORD_TRUE},
+    {"false", KEYWORD_FALSE},  {"ret", KEYWORD_RET},
     {"fn", KEYWORD_PROCEDURE},
-
 
 };
 
 static const std::unordered_map<std::string, TOKEN_TYPE> dataTypeMap = {
 
-    {"double", DATA_TYPE},
-    {"int", DATA_TYPE},
-    {"bool", DATA_TYPE},
-    {"str", DATA_TYPE},
-    {"float", DATA_TYPE},
-    {"char", DATA_TYPE}
-  };
-
+    {"double", DATA_TYPE}, {"int", DATA_TYPE},   {"bool", DATA_TYPE},
+    {"str", DATA_TYPE},    {"float", DATA_TYPE}, {"char", DATA_TYPE}};
 
 Token checkKeywordFromMap(
     const std::string &keyword,
@@ -229,8 +277,7 @@ Lexer::Lexer(const std::string &input)
 // FIXME: This is getting called twice for some reason
 Lexer::Lexer(const std::fstream &src) : input() {
 
-  // Read file and store it in a string_view
-
+  // Read file and store its data it in a string_view
   std::ostringstream ss;
   ss << src.rdbuf();
   if (!src.good()) {
@@ -260,18 +307,66 @@ std::optional<char> Lexer::check_next_char() {
   return std::nullopt;
 }
 
+// TODO: Some of this cases are very repetitive and could be simplified in a
+// function that matches the consecutives chars as paraemeters, something like:
+// match_consecutive_chars("=") || match_consecutive_chars(">")
 Token Lexer::get_next_token() {
 
   // Should be referenced to input
   auto curr_char = *_position;
   switch (curr_char) {
 
+  case '&': {
+    ++_position;
+    auto next = check_next_char();
+    if (next.has_value()) {
+      if (next.value() == '&') {
+        _position += 2;
+        return Token(OPERATOR_AND, "&&");
+      }
+    }
+  }
+    // Im not including bitwise stuff for now
+    return Token(INVALID, "&");
+
+  case '|': {
+    ++_position;
+    auto next = check_next_char();
+    if (next.has_value()) {
+      if (next.value() == '|') {
+        _position += 2;
+        return Token(OPERATOR_OR, "||");
+      }
+    }
+  }
+    return Token(INVALID, "|");
+
+  case '!': {
+    ++_position;
+    auto next = check_next_char();
+    if (next.has_value()) {
+      if (next.value() == '=') {
+        _position += 2;
+        return Token(OPERATOR_NOT_EQUALS, "!=");
+      }
+    }
+  }
+    return Token(OPERATOR_NEGATION, "!");
+
   case ';':
     ++_position;
     return Token(LINEBREAK, ";");
 
-  case '=':
+  case '=': {
     ++_position;
+    auto next = check_next_char();
+    if (next.has_value()) {
+      if (next.value() == '=') {
+        _position += 2;
+        return Token(OPERATOR_EQUALS, "==");
+      }
+    }
+  }
     return Token(ASSIGNMENT, "=");
 
     // paired tokens (will be checked in parser)
@@ -305,7 +400,7 @@ Token Lexer::get_next_token() {
     return Token(OPERATOR_PLUS, "+");
 
   case '-': {
-      ++_position;
+    ++_position;
     auto next = check_next_char();
     if (next.has_value()) {
       if (next == '>') {
@@ -316,7 +411,17 @@ Token Lexer::get_next_token() {
   }
     return Token(OPERATOR_MINUS, "-");
 
-  case ':':
+  case ':': {
+
+    ++_position;
+    auto next = check_next_char();
+    if (next.has_value()) {
+      if (next == '=') {
+        ++_position;
+        return Token(RANGE_INCLUSIVE, ":=");
+      }
+    }
+  }
     ++_position;
     return Token(COLON, ":");
 
@@ -346,6 +451,32 @@ Token Lexer::get_next_token() {
     }
     _position = endline;
     return Token(COMMENT_SINGLE_LINE, "#");
+  }
+
+    // comparision stuff
+
+  case '<': {
+    ++_position;
+    auto next = check_next_char();
+    if (next.has_value()) {
+      if (next == '=') {
+        ++_position;
+        return Token(OPERATOR_LESS_THAN_EQUALS, "<=");
+      }
+    }
+    return Token(OPERATOR_LESS_THAN, "<");
+  }
+
+  case '>': {
+    ++_position;
+    auto next = check_next_char();
+    if (next.has_value()) {
+      if (next == '=') {
+        ++_position;
+        return Token(OPERATOR_GREATER_THAN_EQUALS, ">=");
+      }
+    }
+    return Token(OPERATOR_GREATER_THAN, ">");
   }
 
   case ' ':
@@ -449,7 +580,31 @@ Token Lexer::get_next_token() {
       // update current position
     } else if (isNumeric(curr_char)) {
 
-      auto buffer = std::find_if_not(_position, input.end(), isNumeric);
+      // auto next_two_chars = std::string(_position + 1, _position + 3);
+      // if (next_two_chars == "..") {
+      //   _position += 2;
+      //   std::cout << "RANGE DOT\n";
+      //   return Token(RANGE_DOT, "0..");
+      // }
+
+      auto buffer = std::find_if_not(_position, input.end(), [&](char ch) {
+        return isNumeric(ch) || ch == '.';
+      });
+
+      // get dot count
+      auto dotcnt = std::count(_position, buffer, '.');
+
+      if (dotcnt > 1) {
+        return Token(INVALID, "\0");
+      } else if (dotcnt == 1) {
+        // check if it's a valid decimal number
+        // if (!isDecimal(buff_str)) {
+        //   return Token(INVALID, "\0");
+        // }
+        _position = buffer;
+        return Token(DOUBLE, std::string{_position, buffer});
+      }
+
       std::string number = {_position, buffer};
       _position = buffer;
       return Token(NUMBER, number);
@@ -466,16 +621,10 @@ Token Lexer::get_next_token() {
       } else {
         tok = checkKeywordFromMap(word, dataTypeMap);
 
-        if (tok.getType() != INVALID)
-        {
+        if (tok.getType() != INVALID) {
           // not very efficient, I know
           return Token(DATA_TYPE, tok.getValue());
         }
-
-
-
-
-
       }
 
       return Token(INVALID, "\0");

@@ -1,15 +1,54 @@
-# @var : int = 23;
-# @my_var : int;
-
 # This is a function declaration.
 fn @doMath(@a: int, @b: int) -> int {
     ret @a + @b * 2;
 };
 
-# Main entry point(optional)
+# # Main entry point(optional)
 fn @main() -> int {
     @my_var = 45;
-    @y = @doMath(@var, 23);
+    @y : int = @doMath(@var, 23);
 
     ret 0;
 };
+
+# # range based for loops
+# # increments by default
+for @i in 0 := 10 {
+    @i = @i + 1;
+};
+
+# if statements
+if @a = 23 {
+
+} else if 23 {
+
+} else {
+
+};
+
+@a : int = 23.2323123;
+
+
+if @a == 23 {
+
+} else if 23 {
+
+} else {
+
+};
+
+
+#inclusive range
+for @i in 0 := 10 {
+};
+
+#non inclusive range
+for @i in 0 : 10 {
+};
+
+# comparision operators
+ if @a > 23{
+  
+};
+
+

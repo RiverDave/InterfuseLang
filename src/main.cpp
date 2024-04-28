@@ -35,13 +35,8 @@ int main() {
   // }
 
   // std::string src{"@var : int = 23;"};
-  // Lexer lex(src);
-  // auto t = lex.tokenize();
-  // for (const auto &i : t) {
-  //   std::cout << i << std::endl;
-  // }
 
-  initializeLexer();
+  // initializeLexer();
   yyparse();
 
   return 0;

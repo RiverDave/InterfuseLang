@@ -60,8 +60,6 @@ public:
 	// virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-
-
 class NInteger : public NExpression
 {
 public:
@@ -106,9 +104,38 @@ public:
 
 };
 
+class NIfStatement : public NStatement {
+public:
+    NExpression* condition;
+    NBlock* trueBlock;
+    NBlock* falseBlock; // Optional, may be nullptr
+    NIfStatement(NExpression* condition, NBlock* trueBlock, NBlock* falseBlock)
+        : condition(condition), trueBlock(trueBlock), falseBlock(falseBlock) {}
+};
 
+class NElseStatement : public NStatement {
+public:
+    NBlock* block;
+    explicit NElseStatement(NBlock* block) : block(block) {}
+};
 
+class NWhileStatement : public NStatement {
+public:
+    NExpression* condition;
+    NBlock* loopBlock;
+    NWhileStatement(NExpression* condition, NBlock* loopBlock)
+        : condition(condition), loopBlock(loopBlock) {}
+};
 
-
+class NForStatement : public NStatement {
+public:
+    NExpression* initialization;
+    NExpression* condition;
+    NExpression* iteration;
+    NBlock* loopBlock;
+    
+    NForStatement(NExpression* initialization, NExpression* condition, NExpression* iteration, NBlock* loopBlock)
+        : initialization(initialization), condition(condition), iteration(iteration), loopBlock(loopBlock) {}
+};
 
 #endif //AST_H

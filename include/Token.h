@@ -10,13 +10,13 @@ enum TOKEN_TYPE {
 
   INVALID, // None of the below, invalid syntax
   NUMBER,
-  FLOAT,
+  DOUBLE,
   BOOLEAN,  // true | false
   ACCESSOR, // dots(.)  -> not sure about this
   TYPE_SPECIFIER,
   STRING,
   IDENTIFIER, // variables, syntactically begin with a '@'.
-              //
+
   KEYWORD,    // restricted keywords?, i need to research about this
 
   // boolean keywords
@@ -36,6 +36,7 @@ enum TOKEN_TYPE {
 
   // iteration keywords
   KEYWORD_LOOP_FOR,
+  KEYWORD_LOOP_IN,
   KEYWORD_LOOP_WHILE,
   KEYWORD_LOOP_DO,
 
@@ -53,6 +54,9 @@ enum TOKEN_TYPE {
   OPERATOR_MULTIPLY,
   OPERATOR_DIVIDE,
 
+
+  RANGE_INCLUSIVE,
+  RANGE_NON_INCLUSIVE,
   DOT,
   COMMA,
   ARROW,
@@ -62,6 +66,18 @@ enum TOKEN_TYPE {
   LINEBREAK, // -> (;) |  need to thing about this, do i consider forcing the
              // user to use semis?
   SPACE,
+
+  //boolean operators
+  OPERATOR_AND,
+  OPERATOR_OR,
+  OPERATOR_NOT,
+  OPERATOR_EQUALS,
+  OPERATOR_NOT_EQUALS,
+  OPERATOR_GREATER_THAN,
+  OPERATOR_LESS_THAN,
+  OPERATOR_GREATER_THAN_EQUALS,
+  OPERATOR_LESS_THAN_EQUALS,
+  OPERATOR_NEGATION,
 
   DATA_TYPE,
   DATA_TYPE_CHAR,
@@ -114,7 +130,7 @@ private:
     switch (type) {
       XTOKEN_CASE(INVALID)
       XTOKEN_CASE(NUMBER)
-      XTOKEN_CASE(FLOAT)
+      XTOKEN_CASE(DOUBLE)
       XTOKEN_CASE(BOOLEAN)
       XTOKEN_CASE(ACCESSOR)
       XTOKEN_CASE(TYPE_SPECIFIER)
@@ -146,6 +162,17 @@ private:
       XTOKEN_CASE(COMMENT_MULTI_LINE)
       XTOKEN_CASE(DOT)
       XTOKEN_CASE(COMMA)
+      XTOKEN_CASE(OPERATOR_AND)
+      XTOKEN_CASE(OPERATOR_OR)
+      XTOKEN_CASE(OPERATOR_NOT)
+      XTOKEN_CASE(OPERATOR_EQUALS)
+      XTOKEN_CASE(OPERATOR_NOT_EQUALS)
+      XTOKEN_CASE(OPERATOR_GREATER_THAN)
+      XTOKEN_CASE(OPERATOR_LESS_THAN)
+      XTOKEN_CASE(OPERATOR_GREATER_THAN_EQUALS)
+      XTOKEN_CASE(OPERATOR_LESS_THAN_EQUALS)
+      XTOKEN_CASE(OPERATOR_NEGATION)
+      XTOKEN_CASE(RANGE_INCLUSIVE)
       XTOKEN_CASE(ARROW)
       XTOKEN_CASE(COLON)
       XTOKEN_CASE(DATA_TYPE)
