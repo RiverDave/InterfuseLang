@@ -1,108 +1,52 @@
+# This is a function declaration.
+fn @doMath(@a: int, @b: int) -> int {
+    ret @a + @b * 2;
+};
 
-/Users/davidriverg/dev/pourer/src/parser.y: warning: 4 useless nonterminals and 
-6 useless rules
-/Users/davidriverg/dev/pourer/src/parser.y:77.11-12: warning: useless nontermina
-l: id
-/Users/davidriverg/dev/pourer/src/parser.y:82.27-33: warning: useless nontermina
-l: fn_decl
-/Users/davidriverg/dev/pourer/src/parser.y:79.15-21: warning: useless nontermina
-l: fn_args
-/Users/davidriverg/dev/pourer/src/parser.y:81.14-25: warning: useless nontermina
-l: fn_call_args
-/Users/davidriverg/dev/pourer/src/parser.y:147.6-151.5: warning: useless rule: i
-d: TKIDENTIFIER
-/Users/davidriverg/dev/pourer/src/parser.y:165.5-169.5: warning: useless rule: f
-n_decl: id TKPAROPEN fn_args TKPARCLOSE block
-/Users/davidriverg/dev/pourer/src/parser.y:173.5-178.5: warning: useless rule: f
-n_args: var_decl
-/Users/davidriverg/dev/pourer/src/parser.y:179.5-185.5: warning: useless rule: f
-n_args: fn_args TKCOMMA var_decl
-/Users/davidriverg/dev/pourer/src/parser.y:245.5-248.5: warning: useless rule: f
-n_call_args: expr
-/Users/davidriverg/dev/pourer/src/parser.y:249.5-253.5: warning: useless rule: f
-n_call_args: fn_call_args TKCOMMA expr
-/Users/davidriverg/dev/pourer/src/parser.y: conflicts: 6 shift/reduce
-[ 33%] Building CXX object CMakeFiles/pourer.dir/src/Lexer.cpp.o
-[ 50%] Building CXX object CMakeFiles/pourer.dir/parser.cpp.o
-[ 66%] Linking CXX executable pourer
-ld: warning: ignoring duplicate libraries: '/opt/homebrew/lib/libLLVMCore.a', '/
-opt/homebrew/lib/libLLVMSupport.a'
-ld: warning: search path '/lib' not found
-ld: warning: reexported library with install name '/opt/homebrew/opt/llvm/lib/li
-bunwind.1.dylib' found at '/opt/homebrew/Cellar/llvm/17.0.6_1/lib/libunwind.1.0.
-dylib' couldn't be matched with any parent library and will be linked directly
-[100%] Built target pourer
-> ./pourer
-Initializing lexer
-Parsed exp
-ERROR: syntax error 
-> make
-[100%] Built target pourer
-> ./pourer
-Initializing lexer
-Parsed exp
-ERROR: syntax error 
-> ./pourer
-Initializing lexer
-Parsed exp
-> make
-[100%] Built target pourer
-> ./pourer
-Initializing lexer
-Parsed exp
-> make
-[100%] Built target pourer
-> ./pourer
-Initializing lexer
- 
-Parsed var_decl
-> ./pourer
-Initializing lexer
-Parsed exp
-ERROR: syntax error 
-> make
-[ 16%] [BISON][MyParser] Building parser with bison 2.3
-/Users/davidriverg/dev/pourer/src/parser.y: warning: 4 useless nonterminals and 
-6 useless rules
-/Users/davidriverg/dev/pourer/src/parser.y:77.11-12: warning: useless nontermina
-l: id
-/Users/davidriverg/dev/pourer/src/parser.y:82.27-33: warning: useless nontermina
-l: fn_decl
-/Users/davidriverg/dev/pourer/src/parser.y:79.15-21: warning: useless nontermina
-l: fn_args
-/Users/davidriverg/dev/pourer/src/parser.y:81.14-25: warning: useless nontermina
-l: fn_call_args
-/Users/davidriverg/dev/pourer/src/parser.y:147.6-151.5: warning: useless rule: i
-d: TKIDENTIFIER
-/Users/davidriverg/dev/pourer/src/parser.y:174.5-178.5: warning: useless rule: f
-n_decl: id TKPAROPEN fn_args TKPARCLOSE block
-/Users/davidriverg/dev/pourer/src/parser.y:182.5-187.5: warning: useless rule: f
-> ./pourer
-Initializing lexer
-Parsed exp
-ERROR: syntax error 
-> make clean
-> make
-[ 16%] [BISON][MyParser] Building parser with bison 2.3
-/Users/davidriverg/dev/pourer/src/parser.y: warning: 4 useless nonterminals and 6 useless
- rules
-/Users/davidriverg/dev/pourer/src/parser.y:77.11-12: warning: useless nonterminal: id
-/Users/davidriverg/dev/pourer/src/parser.y:82.27-33: warning: useless nonterminal: fn_dec
-l
-/Users/davidriverg/dev/pourer/src/parser.y:79.15-21: warning: useless nonterminal: fn_arg
-s
-/Users/davidriverg/dev/pourer/src/parser.y:81.14-25: warning: useless nonterminal: fn_cal
-l_args
-/Users/davidriverg/dev/pourer/src/parser.y:147.6-151.5: warning: useless rule: id: TKIDEN
-TIFIER
-/Users/davidriverg/dev/pourer/src/parser.y:174.5-178.5: warning: useless rule: fn_decl: i
-d TKPAROPEN fn_args TKPARCLOSE block
-/Users/davidriverg/dev/pourer/src/parser.y:182.5-187.5: warning: useless rule: fn_args: v
-ar_decl
-/Users/davidriverg/dev/pourer/src/parser.y:188.5-194.5: warning: useless rule: fn_args: f
-n_args TKCOMMA var_decl
-/Users/davidriverg/dev/pourer/src/parser.y:254.5-257.5: warning: useless rule: fn_call_ar
-gs: expr
-/Users/davidriverg/dev/pourer/src/parser.y:258.5-262.5: warning: useless rule: fn_call_ar
-gs: fn_call_args TKCOMMA expr
-/Users/davidriverg/dev/pourer/src/parser.y: conflicts: 6 shift/reduce
+# # Main entry point(optional)
+fn @main() -> int {
+    @my_var = 45;
+    @y : int = @doMath(@var, 23);
+
+    ret 0;
+};
+
+# # range based for loops
+# # increments by default
+for @i in 0 := 10 {
+    @i = @i + 1;
+};
+
+# if statements
+if @a == 23 {
+
+} else if 23 {
+
+} else {
+
+};
+
+@a : int = 23.2323123;
+
+
+if @a == 23 {
+
+} else if 23 {
+
+} else {
+
+};
+
+
+#inclusive range
+for @i in 0 := 10 {
+};
+
+#non inclusive range
+for @i in 0 : 10 {
+};
+
+# comparision operators
+ if @a > 23{
+  
+};

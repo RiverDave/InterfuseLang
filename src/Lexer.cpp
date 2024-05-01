@@ -30,7 +30,7 @@ extern "C" int yylex() {
     token = lexerInstance->get_next_token();
   }
 
-  // std::cout << token << std::endl;
+  std::cout << token << std::endl;
 
   // Token types defined in bison file
   switch (token.getType()) {
@@ -227,10 +227,6 @@ auto check_consecutive_backticks = [](const std::string::iterator &_position,
 };
 
 auto move_itr_bounds = [](const std::string &input, auto &_itr) -> void {
-  // When working with the C++ container library, the proper type for
-  // the difference between iterators is the member typedef
-  // difference_type, which is often synonymous with std::ptrdiff_t.
-  // -cppref
   if (_itr != input.end()) {
     _itr++;
   } else {
@@ -422,7 +418,6 @@ Token Lexer::get_next_token() {
       }
     }
   }
-    ++_position;
     return Token(COLON, ":");
 
   case '.':
@@ -558,6 +553,7 @@ Token Lexer::get_next_token() {
 
       auto old_pos = _position;
 
+      //Move itr to avoid lexing '@'
       move_itr_bounds(input, _position);
 
       if (old_pos == _position || _position == input.end() ||
@@ -568,11 +564,11 @@ Token Lexer::get_next_token() {
 
       std::string::iterator buffer =
           std::find_if_not(_position, input.end(),
-                           [](char ch) { return isalnum(ch) || ch == '_'; });
+                           [&](char ch) { return isalnum(ch) || ch == '_'; });
 
       // range initialization
       std::string identifier = {_position, buffer};
-      std::cout << *buffer << "\n";
+      //std::cout << *buffer << "\n";
 
       // word found could be a Pourer keyword
       _position = buffer;
@@ -597,12 +593,11 @@ Token Lexer::get_next_token() {
       if (dotcnt > 1) {
         return Token(INVALID, "\0");
       } else if (dotcnt == 1) {
-        // check if it's a valid decimal number
-        // if (!isDecimal(buff_str)) {
-        //   return Token(INVALID, "\0");
-        // }
+
+        Token tok = Token(DOUBLE, std::string{_position, buffer});
         _position = buffer;
-        return Token(DOUBLE, std::string{_position, buffer});
+        std::cout << tok << std::endl;
+        return tok;
       }
 
       std::string number = {_position, buffer};
