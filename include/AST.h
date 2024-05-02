@@ -5,9 +5,15 @@
 #ifndef AST_H
 #define AST_H
 
+namespace llvm
+{
+  class LLVMContext;
+}
+
+
 #include "Token.h"
+#include <llvm/IR/Value.h>
 #include <vector>
-// #include <llvm/IR/Value.h>
 
 class CodeGenContext;
 class NStatement;
@@ -20,11 +26,11 @@ typedef std::vector<NVariableDeclaration *> VariableList;
 
 class Node {
 public:
-  virtual ~Node() {}
 
   // Will be used in each node to then be export IR to bytecode through llvm's
   // API
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual ~Node() {}
+	virtual llvm::Value* codeGen(CodeGenContext& context) { return NULL; }
 };
 
 class NExpression : public Node {};
@@ -37,7 +43,7 @@ public:
 
   NBlock() = default;
 
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NIdentifier : public NExpression {
@@ -47,7 +53,7 @@ public:
   explicit NIdentifier(const std::string &name) : name(std::move(name)) {}
 
   std::string getName() const { return name; }
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NExpressionStatement : public NStatement {
@@ -57,7 +63,7 @@ public:
   explicit NExpressionStatement(NExpression &expression)
       : expression(expression) {}
 
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NReturnStatement : public NStatement {
@@ -65,8 +71,7 @@ public:
   NExpression *expression;
 
   explicit NReturnStatement(NExpression *expression) : expression(expression) {}
-
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 // NOTE: Not used yet...
@@ -77,6 +82,8 @@ public:
 
   NWhileStatement(NExpression *condition, NBlock *loopBlock)
       : condition(condition), loopBlock(loopBlock) {}
+
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NForStatement : public NStatement {
@@ -90,6 +97,8 @@ public:
                 NExpression *iteration, NBlock *loopBlock)
       : initialization(initialization), condition(condition),
         iteration(iteration), loopBlock(loopBlock) {}
+
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NFnDeclaration : public NStatement {
@@ -102,6 +111,8 @@ public:
   NFnDeclaration(NIdentifier &id, VariableList &args, NBlock &fnBlock,
                  NIdentifier &type)
       : id(id), params(args), fnBlock(fnBlock), retType(type) {}
+
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NInteger : public NExpression {
@@ -109,12 +120,11 @@ public:
   long long value;
 
   explicit NInteger(long long value) : value(value) {}
-
   explicit NInteger() : value(0) {} // empty int declaration
 
   // for testing purposes only
   long long getValue() const { return value; }
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NDouble : public NExpression {
@@ -126,7 +136,7 @@ public:
   // for testing purposes only
   double getValue() const { return value; }
 
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NBinaryOperator : public NExpression {
@@ -140,7 +150,7 @@ public:
   explicit NBinaryOperator(NExpression &lhs, Token &op, NExpression &rhs)
       : lhs(lhs), op(op), rhs(rhs) {}
 
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NUnaryOperator : public NExpression {
@@ -151,7 +161,7 @@ public:
   explicit NUnaryOperator(Token &op, NExpression &operand)
       : op(op), operand(operand) {}
 
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NFnCall : public NExpression {
@@ -165,7 +175,7 @@ public:
   // No args func call
   NFnCall(const NIdentifier &id) : id(id) {}
 
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NString : public NExpression {
@@ -177,7 +187,7 @@ class NString : public NExpression {
 
   explicit NString(const std::string &value) : value(value) {}
 
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NVariableDeclaration : public NStatement {
@@ -191,7 +201,7 @@ public:
                        NExpression *assignmentExpr = nullptr)
       : type(type), id(id), assignmentExpr(assignmentExpr) {}
 
-  // virtual llvm::Value* codeGen(CodeGenContext& context);
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 // Assignment expr
@@ -202,6 +212,8 @@ public:
   NExpression &rhs;
   NAssignment(NIdentifier &id, NExpression &assignmentExpr)
       : lhs(id), rhs(assignmentExpr) {}
+
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NElseStatement : public NStatement {
@@ -209,6 +221,8 @@ public:
   NBlock *block;
 
   explicit NElseStatement(NBlock *block) : block(block) {}
+
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 class NIfStatement : public NStatement {
@@ -219,6 +233,13 @@ public:
   NIfStatement(NExpression *condition, const NBlock *trueBlock,
                const NElseStatement *falseBlock = nullptr)
       : condition(condition), trueBlock(trueBlock), falseBlock(falseBlock) {}
+
+  virtual llvm::Value *codeGen(CodeGenContext &context);
 };
+
+inline std::unique_ptr<Node> LogError(const char *Str) {
+  fprintf(stderr, "Error: %s\n", Str);
+  return nullptr;
+}
 
 #endif // AST_H

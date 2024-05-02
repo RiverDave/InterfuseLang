@@ -21,6 +21,9 @@ set(SOURCES
             include/Lexer.h
             include/Token.h
             include/AST.h
+            include/IR.h
+            src/IR.cpp
+
             src/parser.y
 
 )
@@ -36,5 +39,8 @@ llvm_map_components_to_libnames(llvm_libs support core irreader)
 
 
 # Add compiler flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+
 target_compile_options(pourer PRIVATE -Wall -Wextra)
 target_link_libraries(pourer ${llvm_libs})

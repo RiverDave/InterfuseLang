@@ -114,7 +114,9 @@ public:
   [[nodiscard]]const std::string getValue() { return value; };
 
 private:
-  // vals
+  //TODO: Add line number and column number to track the position of the token
+  //Which would exponentially improve error handling
+
   TOKEN_TYPE type;
   std::string value;
 

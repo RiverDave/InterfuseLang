@@ -6,12 +6,8 @@
 //To be accessed in the lexer 
 
 
+//Entry point for the parser(to be called in main by context)
     NBlock *programBlock;
-
-    //Lexer lex (std::fstream("../examples/test.pour"));
-    //Lexer* lexerInstance = &lex;
-    
-
 
     extern int yylex();
     void yyerror(const char* err){printf("ERROR: %s \n", err);}
