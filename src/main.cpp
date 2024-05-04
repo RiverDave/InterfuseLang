@@ -8,23 +8,15 @@ extern NBlock *programBlock;
 
 int main() {
 
-  // std::string src{"@var : int = 23;"};
-
-  // initializeLexer();
-  // yyparse();
-
-
-    // TheContext = std::make_unique<llvm::LLVMContext>();
-    // Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
-
+   if(yyparse() == 0 ){
     CodeGenContext context;
-    //std::stack<int>test;
+    context.emitIR(*programBlock);
+    context.setTarget();
+    context.runCode();
+   } else {
 
-    const auto nint = std::make_unique<NInteger>(NInteger(10));
-    const llvm::Value* value = nint->codeGen(context);
-
-    //std::cout << "Generated value: " << value << std::endl;
-
+     std::cout << "Parsing failed" << std::endl;
+   }
 
   return 0;
 }

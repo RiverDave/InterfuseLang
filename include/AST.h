@@ -5,12 +5,6 @@
 #ifndef AST_H
 #define AST_H
 
-namespace llvm
-{
-  class LLVMContext;
-}
-
-
 #include "Token.h"
 #include <llvm/IR/Value.h>
 #include <vector>
@@ -35,7 +29,7 @@ public:
 
 class NExpression : public Node {};
 
-class NStatement {};
+class NStatement : public Node {};
 
 class NBlock : public NExpression {
 public:
@@ -43,7 +37,7 @@ public:
 
   NBlock() = default;
 
-  virtual llvm::Value *codeGen(CodeGenContext &context);
+  virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NIdentifier : public NExpression {
@@ -51,9 +45,11 @@ public:
   std::string name;
 
   explicit NIdentifier(const std::string &name) : name(std::move(name)) {}
+  llvm::Type* getType(CodeGenContext& context) const;
+
 
   std::string getName() const { return name; }
-  virtual llvm::Value *codeGen(CodeGenContext &context);
+  virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NExpressionStatement : public NStatement {
@@ -141,10 +137,8 @@ public:
 
 class NBinaryOperator : public NExpression {
 public:
-  // This could be a token essentially
-
   NExpression &lhs;
-  Token &op;
+  Token &op; //doubtful 'bout this
   NExpression &rhs;
 
   explicit NBinaryOperator(NExpression &lhs, Token &op, NExpression &rhs)

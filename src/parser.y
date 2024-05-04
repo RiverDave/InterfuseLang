@@ -332,7 +332,7 @@ numeric
     expr TKMULT expr
     {
       $$ = new NBinaryOperator(*$1, *$2, *$3);
-      delete $2;
+      //delete $2;
 
     } |
 
@@ -340,7 +340,7 @@ numeric
     {
 
       $$ = new NBinaryOperator(*$1, *$2, *$3);
-      delete $2;
+      //delete $2;
 
     } | 
 
@@ -348,7 +348,7 @@ numeric
     {
 
       $$ = new NBinaryOperator(*$1, *$2, *$3);
-      delete $2;
+      //delete $2;
 
     } |
   
@@ -356,7 +356,7 @@ numeric
     {
 
       $$ = new NBinaryOperator(*$1, *$2, *$3);
-      delete $2;
+      //delete $2;
 
     } |
 
@@ -369,7 +369,7 @@ numeric
     expr comparison expr
     {
       $$ = new NBinaryOperator(*$1, *$2, *$3);
-      delete $2;
+      //delete $2;
       std::cout << "Parsed comparison" << std::endl;
 
     } |
@@ -384,6 +384,7 @@ numeric:
     TKNUMBER
     {
 
+      std::cout << "Generated integer " << std::endl;
       $$ = new NInteger(std::atof($1->getValue().c_str()));
       delete $1;
 
@@ -415,7 +416,7 @@ fn_call_args:
     {
 
       $1->push_back($3);
-      std::cout << "Parsed fn_call_args" << std::endl;
+      //std::cout << "Parsed fn_call_args" << std::endl;
     }
     ;
 

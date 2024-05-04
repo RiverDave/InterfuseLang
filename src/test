@@ -1,3 +1,19 @@
+@a : int = 23;
+
+fn @my_func(@a: int ,@b : double)->int{
+  
+
+};
+
+
+ fn @print_var(@a :int, @b :int ) -> int {
+
+   @a = 23 + 23;
+
+   ret @a;
+
+ };
+
 # This is a function declaration.
 fn @doMath(@a: int, @b: int) -> int {
     ret @a + @b * 2;

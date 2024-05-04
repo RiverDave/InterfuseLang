@@ -30,7 +30,7 @@ extern "C" int yylex() {
     token = lexerInstance->get_next_token();
   }
 
-  std::cout << token << std::endl;
+  //std::cout << token << std::endl;
 
   // Token types defined in bison file
   switch (token.getType()) {

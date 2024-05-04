@@ -35,7 +35,13 @@ BISON_TARGET(MyParser src/parser.y ${CMAKE_CURRENT_BINARY_DIR}/parser.cpp)
 add_executable(pourer ${SOURCES} ${BISON_MyParser_OUTPUTS})
 
 # target_include_directories(pourer PRIVATE ${INCLUDE_PATH})
-llvm_map_components_to_libnames(llvm_libs support core irreader)
+llvm_map_components_to_libnames(llvm_libs support core irreader executionengine interpreter target mcjit all)
+
+foreach(target ${LLVM_TARGETS_TO_BUILD})
+  list(APPEND targets "LLVM${target}CodeGen")
+endforeach()
+
+target_link_libraries(pourer ${llvm_libraries} ${targets})
 
 
 # Add compiler flags
