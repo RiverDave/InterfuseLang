@@ -5,6 +5,7 @@
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/IR/Module.h>
+#include <llvm/IR/Verifier.h>
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
@@ -43,11 +44,29 @@ llvm::GenericValue CodeGenContext::runCode() {
   std::string error;
   llvm::ExecutionEngine *ee =
       EngineBuilder(std::move(TheModule)).setErrorStr(&error).create();
+
   if (!ee) {
     std::cerr << "Failed to create ExecutionEngine: " << error << std::endl;
     throw std::runtime_error("Failed to create ExecutionEngine");
   }
-  ee->finalizeObject();
+
+  try {
+
+    if (ee->hasError()) {
+
+      std::cerr << ee->getErrorMessage() << std::endl;
+      throw std::runtime_error("Failed to create ExecutionEngine");
+    }
+    // FIXME: Returning exception for some reason!!
+    ee->finalizeObject();
+  } catch (const std::exception &e) {
+
+    if (e.what()) {
+      std::cout << e.what() << std::endl;
+      std::cout << ee->getErrorMessage() << std::endl;
+    }
+  }
+
   //
   std::vector<GenericValue> noargs;
   GenericValue v = ee->runFunction(globalFn, noargs);
@@ -57,8 +76,12 @@ llvm::GenericValue CodeGenContext::runCode() {
 }
 
 void CodeGenContext::setTarget() {
+
+  // LLVMLinkInMCJIT();
+
   LLVMInitializeNativeTarget();
   LLVMInitializeNativeAsmPrinter();
+
   // LLVMInitializeNativeAsmParser(); //FIXME: This wouldn't link for some
   // reason
 
@@ -94,6 +117,7 @@ llvm::AllocaInst *CodeGenContext::insertMemOnFnBlock(llvm::Function *fn,
 llvm::Value *NBlock::codeGen(CodeGenContext &context) {
   Value *last = nullptr;
 
+  // FIXME: Crashing on var declaration after fn declaration
   std::for_each(statements.begin(), statements.end(),
                 [&](NStatement *stmt) { last = stmt->codeGen(context); });
 
@@ -135,7 +159,8 @@ llvm::Type *NIdentifier::getType(CodeGenContext &context) const {
   std::unordered_map<std::string, llvm::Type *> typeMap{
       {"int", llvm::Type::getInt64Ty(*context.TheContext)},
       {"double", llvm::Type::getDoubleTy(*context.TheContext)},
-      {"float", llvm::Type::getFloatTy(*context.TheContext)}
+      {"float", llvm::Type::getFloatTy(*context.TheContext)},
+      {"void", llvm::Type::getVoidTy(*context.TheContext)}
       //{"bool", llvm::Type::getInt64Ty(*context.TheContext)},
       //{"int", llvm::Type::getInt64Ty(*context.TheContext)},
   };
@@ -143,7 +168,7 @@ llvm::Type *NIdentifier::getType(CodeGenContext &context) const {
   auto it = typeMap.find(name);
   if (it == typeMap.end()) {
     // Throw Error: Unknown type
-    return nullptr;
+    throw std::runtime_error("Unknown type: " + name);
   }
 
   return it->second;
@@ -180,7 +205,10 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
 }
 
 llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
-  Function *theFunction = context.globalFn;
+  Function *parentFunction =
+      context.Builder->GetInsertBlock()
+          ->getParent(); // FIXME: All variables are being inserted on the
+                         // global function(fix that)
 
   // if(!assignmentExpr){
   //   //handle empty variable declaration
@@ -188,25 +216,33 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
 
   AllocaInst *alloc = nullptr;
 
-
   //    auto locals = context.blocks.top()->locals;
 
   auto find = context.blocks.top()->locals.find(id->name);
 
   if (find == context.blocks.top()->locals.end()) {
-    alloc = context.insertMemOnFnBlock(theFunction, id->name, type.getType(context));
+    alloc = context.insertMemOnFnBlock(parentFunction, id->name,
+                                       type.getType(context));
     context.blocks.top()->locals[id->name] = alloc;
+    std::cout << "Creating variable declaration: " << id->name << std::endl;
+
   } else {
     // Function redefinition detected, prevent allocation
 
-    LogErrorV("Function redefinition detected\n");
+    LogErrorV("Variable redefinition detected\n");
     throw std::runtime_error("Redefinition detected");
   }
 
   // NOTE: the llvm docs mention about storing the old local bindings to be able
   // to use recursion(Might need to do that later).
 
-  return context.Builder->CreateStore(assignmentExpr->codeGen(context), alloc);
+  Value *assignedVal = assignmentExpr->codeGen(context);
+
+  std::cout << "Var assignment: " << id->name << " = " << std::endl;
+  assignedVal->print(llvm::outs(), false);
+  std::cout << std::endl;
+
+  return context.Builder->CreateStore(assignedVal, alloc);
 }
 
 llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
@@ -226,12 +262,143 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
   return context.Builder->CreateStore(value, var);
 }
 
+llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
+
+  // FIXME: FN redefinition is not being detected
+
+  // Prototype generation:
+  auto find = context.blocks.top()->locals.find(id.name);
+
+  // Fn redefinition or variable with same name found
+  if (find != context.blocks.top()->locals.end()) {
+    throw std::runtime_error("Alias redefinition detected");
+  }
+
+  std::vector<Type *> argTypes;
+  std::for_each(params.begin(), params.end(),
+                [&](NVariableDeclaration *var_decl) {
+                  argTypes.push_back(var_decl->type.getType(context));
+                  // std::cout << var_decl->type.name << std::endl;
+                });
+
+  Type *fnRetType = this->retType.getType(context);
+
+  if (!fnRetType) {
+    throw std::runtime_error("Unknwon fn return type");
+  }
+
+  llvm::FunctionType *FT = FunctionType::get(fnRetType, argTypes, false);
+
+  Function *fn = Function::Create(FT, Function::ExternalLinkage, id.name,
+                                  context.TheModule.get());
+  assert(fn != nullptr);
+
+  // Assign name args(not necessary tho)
+  size_t i = 0;
+  for (auto &arg : fn->args()) {
+    arg.setName(params[i++]->id->name);
+    // std::cout << static_cast<std::string>(arg.getName()) << std::endl;
+  }
+
+  // Function was defined
+  if (fnBlock) {
+
+    BasicBlock *BB =
+        BasicBlock::Create(*context.TheContext.get(), "entry",
+                           fn); // Could also insert block on curr fn?
+    context.pushBlock(BB);
+    // auto &nblockLocals = context.blocks.top()->locals;
+
+    // Alloc each arg as variable in current block
+    // FIXME: Not sure if I shall do the usual check to see if the var was
+    // already allocated In current blocka && Var allocation below could be
+    // potentially separated in a function
+
+    context.Builder->SetInsertPoint(BB);
+
+    for (const auto &e : params) {
+
+      AllocaInst *alloc =
+          context.insertMemOnFnBlock(fn, e->id->name, e->type.getType(context));
+      context.blocks.top()->locals[e->id->name] = alloc;
+
+      Value *nullVal = Constant::getNullValue(e->type.getType(context));
+      assert(nullVal != nullptr && alloc != nullptr);
+
+      context.Builder->CreateStore(nullVal, alloc, false);
+    }
+
+    if (!fnRetType->isVoidTy()) {
+
+      if (Value *retVal = fnBlock->codeGen(context)) {
+        // context.Builder->CreateRet(RetVal);
+
+        context.blocks.top()->return_value = retVal;
+
+        ReturnInst::Create(*context.TheContext, retVal, BB);
+        // Checking if fn contains a return node
+        if (!isa<ReturnInst>(
+                context.Builder->GetInsertBlock()->getTerminator())) {
+          std::cout << "Function should have a return value\n";
+          // If not, throw an error
+          throw std::runtime_error("Function should have a return value");
+        }
+        // Validate the generated code, This is an llvm built-in checker.
+        verifyFunction(*fn);
+        std::cout << "Generated function !\n";
+
+        // Reset the insert point
+
+        fn->removeFromParent();
+        context.blocks.pop();
+
+        auto pBlock = context.blocks.top()->blockWrapper;
+        context.Builder->SetInsertPoint(pBlock);
+
+
+
+      } else {
+
+        fn->removeFromParent();
+        context.blocks.pop();
+
+        throw std::runtime_error("FN codegen failed");
+      }
+    }
+  }
+
+  fn->print(llvm::errs());
+  return fn;
+}
+
 llvm::Value *NUnaryOperator::codeGen(CodeGenContext &context) {
   return nullptr;
 }
 
+// Doubtful bout this
 llvm::Value *NReturnStatement::codeGen(CodeGenContext &context) {
-  return nullptr;
+
+  Value *retVal = expression->codeGen(context);
+
+  if (!retVal) {
+    throw std::runtime_error("Return statement codegen failed");
+  }
+
+  std::cout << "Creating return statement" << std::endl;
+  retVal->print(llvm::outs(), false);
+  std::cout << std::endl;
+  return retVal;
+  // auto retInst =  context.Builder->CreateRet(retVal);
+  //
+  // retInst->print(llvm::outs(), false);
+  // std::cout << std::endl;
+  //
+  // return retInst;
+
+  // NOTE: It is also possible to provide a void return but Im not sure if the
+  // instructions provided above would satisfy that.
+
+  // return retVal;
 }
 
 llvm::Value *NWhileStatement::codeGen(CodeGenContext &context) {
@@ -239,10 +406,6 @@ llvm::Value *NWhileStatement::codeGen(CodeGenContext &context) {
 }
 
 llvm::Value *NForStatement::codeGen(CodeGenContext &context) { return nullptr; }
-
-llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
-  return nullptr;
-}
 
 llvm::Value *NFnCall::codeGen(CodeGenContext &context) { return nullptr; }
 llvm::Value *NString::codeGen(CodeGenContext &context) { return nullptr; }

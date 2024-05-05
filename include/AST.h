@@ -20,11 +20,10 @@ typedef std::vector<NVariableDeclaration *> VariableList;
 
 class Node {
 public:
-
   // Will be used in each node to then be export IR to bytecode through llvm's
   // API
   virtual ~Node() {}
-	virtual llvm::Value* codeGen(CodeGenContext& context) { return NULL; }
+  virtual llvm::Value *codeGen(CodeGenContext &context) { return NULL; }
 };
 
 class NExpression : public Node {};
@@ -45,8 +44,7 @@ public:
   std::string name;
 
   explicit NIdentifier(const std::string &name) : name(std::move(name)) {}
-  llvm::Type* getType(CodeGenContext& context) const;
-
+  llvm::Type *getType(CodeGenContext &context) const;
 
   std::string getName() const { return name; }
   virtual llvm::Value *codeGen(CodeGenContext &context) override;
@@ -99,14 +97,14 @@ public:
 
 class NFnDeclaration : public NStatement {
 public:
-  NIdentifier &id;
+  NIdentifier &id; //NOTE: This could be replaced for a var declaration for default parameters in functions
   VariableList params;
-  NBlock &fnBlock;
   NIdentifier &retType;
+  NBlock *fnBlock; // This should be optional(in theory)
 
-  NFnDeclaration(NIdentifier &id, VariableList &args, NBlock &fnBlock,
-                 NIdentifier &type)
-      : id(id), params(args), fnBlock(fnBlock), retType(type) {}
+  NFnDeclaration(NIdentifier &id, VariableList &args, NIdentifier &type,
+                 NBlock *fnBlock = nullptr)
+      : id(id), params(args),  retType(type), fnBlock(fnBlock) {}
 
   virtual llvm::Value *codeGen(CodeGenContext &context);
 };
@@ -138,7 +136,7 @@ public:
 class NBinaryOperator : public NExpression {
 public:
   NExpression &lhs;
-  Token &op; //doubtful 'bout this
+  Token &op; // doubtful 'bout this
   NExpression &rhs;
 
   explicit NBinaryOperator(NExpression &lhs, Token &op, NExpression &rhs)

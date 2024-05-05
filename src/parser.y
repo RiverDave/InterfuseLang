@@ -195,7 +195,14 @@ fn_decl:
     TKFUNCTION_KEY id TKPAROPEN fn_args TKPARCLOSE TKARROW TKDATATYPE block
     {
         NIdentifier* type = new NIdentifier($7->getValue().c_str());
-        $$ = new NFnDeclaration(*$2, *$4,  *$8 , *type);
+        $$ = new NFnDeclaration(*$2, *$4, *type, $8);
+    } | 
+
+//Prototype declaration
+    TKFUNCTION_KEY id TKPAROPEN fn_args TKPARCLOSE TKARROW TKDATATYPE 
+    {
+        NIdentifier* type = new NIdentifier($7->getValue().c_str());
+        $$ = new NFnDeclaration(*$2, *$4, *type);
     }
     ;
 

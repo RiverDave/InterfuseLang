@@ -24,7 +24,6 @@ llvm::Value *LogErrorV(const char *Str);
 //Wrapper around basic blocks
 class CodeGenBlock {
 public:
-  // TODO: Provide smart ptrs for members below
   llvm::BasicBlock* blockWrapper;
   llvm::Value *return_value;
   //Allocainst stores memory block occupied by that variable
@@ -54,6 +53,8 @@ public:
   void emitIR(NBlock &srcRoot);
   void setTarget();
   llvm::GenericValue runCode();
+
+  llvm::Function* genPrototype();
 
   //Insert memory block on fn block(used to instantiate variables)
   llvm::AllocaInst* insertMemOnFnBlock(llvm::Function* fn, std::string& id, llvm::Type*);

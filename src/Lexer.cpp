@@ -30,7 +30,7 @@ extern "C" int yylex() {
     token = lexerInstance->get_next_token();
   }
 
-  //std::cout << token << std::endl;
+  // std::cout << token << std::endl;
 
   // Token types defined in bison file
   switch (token.getType()) {
@@ -138,6 +138,7 @@ extern "C" int yylex() {
   case KEYWORD_LOOP_IN:
     yylval.token = new Token(token);
     return TKIN;
+
     // operator stuff
   case OPERATOR_EQUALS:
     yylval.token = new Token(token);
@@ -255,7 +256,8 @@ static const std::unordered_map<std::string, TOKEN_TYPE> keywordMap = {
 static const std::unordered_map<std::string, TOKEN_TYPE> dataTypeMap = {
 
     {"double", DATA_TYPE}, {"int", DATA_TYPE},   {"bool", DATA_TYPE},
-    {"str", DATA_TYPE},    {"float", DATA_TYPE}, {"char", DATA_TYPE}};
+    {"str", DATA_TYPE},    {"float", DATA_TYPE}, {"char", DATA_TYPE},
+    {"void", DATA_TYPE}};
 
 Token checkKeywordFromMap(
     const std::string &keyword,
@@ -553,7 +555,7 @@ Token Lexer::get_next_token() {
 
       auto old_pos = _position;
 
-      //Move itr to avoid lexing '@'
+      // Move itr to avoid lexing '@'
       move_itr_bounds(input, _position);
 
       if (old_pos == _position || _position == input.end() ||
@@ -568,7 +570,7 @@ Token Lexer::get_next_token() {
 
       // range initialization
       std::string identifier = {_position, buffer};
-      //std::cout << *buffer << "\n";
+      // std::cout << *buffer << "\n";
 
       // word found could be a Pourer keyword
       _position = buffer;

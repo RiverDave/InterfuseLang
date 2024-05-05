@@ -1,1 +1,1 @@
-@my_var : int = 23;
+fn @my_func() -> void;
