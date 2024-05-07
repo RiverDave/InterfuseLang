@@ -1,1 +1,7 @@
-fn @my_func() -> void;
+@a : int;
+
+fn @my_fn(@a : int, @b : int) -> int {
+  ret 23 + 23 + 23 + @a + @b;
+};
+
+@a = @my_fn(1000, 1000);

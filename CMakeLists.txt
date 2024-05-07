@@ -45,8 +45,8 @@ target_link_libraries(pourer ${llvm_libraries} ${targets})
 
 
 # Add compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g")
 
 target_compile_options(pourer PRIVATE -Wall -Wextra)
 target_link_libraries(pourer ${llvm_libs})

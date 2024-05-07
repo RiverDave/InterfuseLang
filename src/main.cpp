@@ -16,13 +16,13 @@ int main() {
       context.setTarget();
       context.runCode();
 
-    } catch (const std::exception &e) {
-      std::cout << e.what() << std::endl;
+    } catch (const std::runtime_error &e) {
+      std::cerr << e.what() << std::flush;
     }
 
   } else {
 
-    std::cout << "Parsing failed" << std::endl;
+    std::cerr << "Parsing failed" << std::endl;
   }
 
   return 0;

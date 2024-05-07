@@ -1,4 +1,4 @@
-# Pourer/Mix
+# Interfuse
 - Programming language developed for fun. Its syntax its based upon most modern programming languages and its currently under development.
 
 Its core syntax as of now:

@@ -62,9 +62,10 @@ public:
 
 class NReturnStatement : public NStatement {
 public:
-  NExpression *expression;
+  NExpression *expression; // Optional since it could be a void function
 
-  explicit NReturnStatement(NExpression *expression) : expression(expression) {}
+  explicit NReturnStatement(NExpression *expression = nullptr)
+      : expression(expression) {}
   virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
@@ -97,14 +98,15 @@ public:
 
 class NFnDeclaration : public NStatement {
 public:
-  NIdentifier &id; //NOTE: This could be replaced for a var declaration for default parameters in functions
+  NIdentifier &id; // NOTE: This could be replaced for a var declaration for
+                   // default parameters in functions
   VariableList params;
   NIdentifier &retType;
   NBlock *fnBlock; // This should be optional(in theory)
 
   NFnDeclaration(NIdentifier &id, VariableList &args, NIdentifier &type,
                  NBlock *fnBlock = nullptr)
-      : id(id), params(args),  retType(type), fnBlock(fnBlock) {}
+      : id(id), params(args), retType(type), fnBlock(fnBlock) {}
 
   virtual llvm::Value *codeGen(CodeGenContext &context);
 };

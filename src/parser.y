@@ -140,6 +140,12 @@ stmt:
         std::cout << "Parsed return exp" << std::endl;
     } |
 
+    TKRETURN
+    {
+        $$ = new NReturnStatement();
+        std::cout << "Parsed return stmt" << std::endl;
+    } |
+
     fn_decl
     {
         //$$ = $1;

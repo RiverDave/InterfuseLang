@@ -21,16 +21,23 @@
 llvm::Value *LogErrorV(const char *Str);
 
 // Represents Every block of code
-//Wrapper around basic blocks
+// Wrapper around basic blocks
 class CodeGenBlock {
 public:
-  llvm::BasicBlock* blockWrapper;
+  llvm::BasicBlock *blockWrapper;
   llvm::Value *return_value;
-  //Allocainst stores memory block occupied by that variable
-  std::map<std::string, llvm::AllocaInst*> locals;
+  // Allocainst stores memory block occupied by that variable
+  std::map<std::string, llvm::AllocaInst *> locals;
 
-  CodeGenBlock() : blockWrapper(nullptr), return_value(nullptr), locals() {
-  }
+  CodeGenBlock() : blockWrapper(nullptr), return_value(nullptr), locals() {}
+};
+
+//Its purpose is to mainly store relevant information
+//necessary to call a function
+struct fnInfo {
+  llvm::Value* fn;
+  llvm::Type* retType;
+  llvm::FunctionType* fnType;
 };
 
 class CodeGenContext {
@@ -40,8 +47,9 @@ public:
   std::stack<std::unique_ptr<CodeGenBlock>> blocks;
   std::unique_ptr<llvm::Module> TheModule;
   std::unique_ptr<llvm::IRBuilder<>> Builder;
+  std::map<std::string, fnInfo> globals; //will store Functions & global vaiables
 
- llvm::Function* globalFn; //Entry point function aka 'Main'
+  llvm::Function *globalFn; // Entry point function aka 'Main'
 
   CodeGenContext() : blocks() {
     // Init core llvm
@@ -54,19 +62,19 @@ public:
   void setTarget();
   llvm::GenericValue runCode();
 
-  llvm::Function* genPrototype();
+  llvm::Function *genPrototype();
 
-  //Insert memory block on fn block(used to instantiate variables)
-  llvm::AllocaInst* insertMemOnFnBlock(llvm::Function* fn, std::string& id, llvm::Type*);
+  // Insert memory block on fn block(used to instantiate variables)
+  llvm::AllocaInst *insertMemOnFnBlock(llvm::Function *fn, std::string &id,
+                                       llvm::Type *);
 
-
-  void pushBlock(llvm::BasicBlock* block) {
+  void pushBlock(llvm::BasicBlock *block) {
     blocks.push(std::make_unique<CodeGenBlock>());
     blocks.top()->return_value = nullptr;
     blocks.top()->blockWrapper = block;
   }
 
-  void popBlock(){ blocks.pop();}
-
+  void popBlock() { blocks.pop(); }
 };
+
 #endif
