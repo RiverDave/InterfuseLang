@@ -112,6 +112,12 @@ stmts:
         $1->statements.push_back($<stmt>2);
      } |
 
+    stmts block
+    {
+        $$ = $<stmts>1;
+        $$ = $<block>2;
+    } | 
+
     block
     {
 
