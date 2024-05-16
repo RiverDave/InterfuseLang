@@ -24,8 +24,9 @@ set(SOURCES
             include/AST.h
             include/IR.h
             include/KaleidoscopeJIT.h
+            include/Intercore.hpp
             src/IR.cpp
-
+            include/internals.hpp
             src/parser.y
 
 )
@@ -55,10 +56,9 @@ target_include_directories(pourer PRIVATE ${INCLUDE_PATH})
 
 # Add compiler flags
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(LLVM_ENABLE_ASSERTIONS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g")
-set(LLVM_ENABLE_ASSERTIONS ON)
+
 target_link_libraries(pourer ${llvm_libraries} ${targets})
-
-
 target_compile_options(pourer PRIVATE -Wall -Wextra)

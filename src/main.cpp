@@ -12,8 +12,8 @@ int main() {
     try {
 
       CodeGenContext context;
+      context.setTargets();
       context.emitIR(*programBlock);
-      context.setTarget();
       context.runCode();
 
     } catch (const std::runtime_error &e) {

@@ -1,4 +1,5 @@
 #include "../include/IR.h"
+#include "../include/internals.hpp"
 #include <algorithm>
 #include <iterator>
 #include <llvm-c/Target.h>
@@ -21,9 +22,28 @@ CodeGenContext::CodeGenContext() : blocks() {
     // Init core llvm
     TheContext = std::make_unique<llvm::LLVMContext>();
     TheModule = std::make_unique<llvm::Module>("Pourer", *TheContext);
+    ee = nullptr;
+
+
+    setTargets();
+
+    auto JITOrErr = llvm::orc::KaleidoscopeJIT::Create();
+
+    if (!JITOrErr) {
+        llvm::errs() << "Failed to create JIT: " << JITOrErr.takeError() << "\n";
+        return;
+    }
+
+    TheJIT = std::move(*JITOrErr);
+    assert(TheJIT && "Failed to create TheJIT");
+
+    TheModule->setDataLayout(TheJIT->getDataLayout());
     Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
     globalFn = nullptr;
-    TheFPM = std::make_unique<llvm::FunctionPassManager>();
+    createCoreFunctions(*this);//Generate core functions(printf for now)
+
+    TheFPM = std::make_unique<legacy::FunctionPassManager>(TheModule.get());
+
     TheLAM = std::make_unique<llvm::LoopAnalysisManager>();
     TheFAM = std::make_unique<llvm::FunctionAnalysisManager>();
     TheCGAM = std::make_unique<llvm::CGSCCAnalysisManager>();
@@ -36,13 +56,16 @@ CodeGenContext::CodeGenContext() : blocks() {
     TheSI->registerCallbacks(*ThePIC, TheMAM.get());
     // Add transform passes.
     // Do simple "peephole" optimizations and bit-twiddling optzns.
-    TheFPM->addPass(llvm::InstCombinePass());
+    TheFPM->add(llvm::createInstructionCombiningPass());
+    // TheFPM->addPass(InstCombinePass());
     // // Reassociate expressions.
-    TheFPM->addPass(llvm::ReassociatePass());
+    TheFPM->add(llvm::createReassociatePass());
     // // Eliminate Common SubExpressions.
-    TheFPM->addPass(llvm::GVNPass());
+    TheFPM->add(llvm::createGVNPass());
     // // Simplify the control flow graph (deleting unreachable blocks, etc).
-    TheFPM->addPass(llvm::SimplifyCFGPass());
+    //CFG PASS
+    TheFPM->add(llvm::createCFGSimplificationPass());
+    TheFPM->doInitialization();//Initialize passes mentioned above
 
     // Register analysis passes used in these transform passes.
     llvm::PassBuilder PB;
@@ -65,38 +88,61 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
 
     BasicBlock *bblock = BasicBlock::Create(*TheContext, "entry", globalFn, 0);
     pushBlock(bblock);
+    Builder->SetInsertPoint(bblock);
 
     // Recursively generate code for each node in the AST
-    srcRoot.codeGen(*this);
+    if (srcRoot.codeGen(*this)) {
 
-    ReturnInst::Create(*TheContext, bblock);
+        //Emit return instance to main function
+        ReturnInst::Create(*TheContext, bblock);
+
+        //Verifyt module before transfering ownership to JIT
+        std::string moduleStr;
+        llvm::raw_string_ostream errorStream(moduleStr);
+        if (llvm::verifyModule(*TheModule, &errorStream)) {
+            std::cerr << "The module is not valid:\n"
+                      << errorStream.str() << std::endl;
+            throw std::runtime_error("Module is not valid");
+        }
+
+        globalFn->print(llvm::errs());
+
+        // Create the ExecutionEngine
+        std::string eeError;
+        ee = EngineBuilder(std::move(TheModule)).setErrorStr(&eeError).create();
+        if (!ee) {
+            std::string err = "Failed to create ExecutionEngine: ";
+            LogErrorV(err.c_str());
+            throw std::runtime_error(err);
+        }
+
+        //ORC stuff, (Basically evaluate top level expression of the bytecode generated)
+        //               auto RT = TheJIT->getMainJITDylib().createResourceTracker();
+        //
+        //               auto TSM = llvm::orc::ThreadSafeModule(std::move(TheModule), std::move(TheContext));
+        //               ExitOnErr(TheJIT->addModule(std::move(TSM), RT));
+        //        //        //NOTE: Could encapsulate constructors init in a function
+        //        //
+        //               auto ExprSymbol = TheJIT->lookup("my_fn");
+        //        //
+        //               if (!ExprSymbol) {
+        //                   ExitOnErr(ExprSymbol.takeError());
+        //               }
+        //
+        //        //        // Get the symbol's address and cast it to the right type (takes no
+        //        //        // arguments, returns a double) so we can call it as a native function.
+        //               double (*FP)() = ExprSymbol->getAddress().toPtr<double (*)()>();
+        //               fprintf(stderr, "Evaluated to %f\n", FP());
+        //        //
+        //        //        // Delete the anonymous expression module from the JIT.
+        //               ExitOnErr(RT->remove());
+    }
     popBlock();
-
-    globalFn->print(llvm::errs());
 }
 
 llvm::GenericValue CodeGenContext::runCode() {
     std::cout << "Running code...\n";
-
-    // Module verification
-    std::string errorStr;
-    llvm::raw_string_ostream errorStream(errorStr);
-    if (llvm::verifyModule(*TheModule, &errorStream)) {
-        std::cerr << "The module is not valid:\n"
-                  << errorStream.str() << std::endl;
-        return llvm::GenericValue();
-    }
-
-    std::string error;
-    llvm::ExecutionEngine *ee =
-            EngineBuilder(std::move(TheModule)).setErrorStr(&error).create();
-
-    if (!ee) {
-        std::string err = "Failed to create ExecutionEngine: ";
-        LogErrorV(err.c_str());
-        throw std::runtime_error(err);
-    }
-
+    GenericValue v;
     try {
 
         // FIXME: Returning exception for some reason!! after calling function
@@ -108,6 +154,11 @@ llvm::GenericValue CodeGenContext::runCode() {
             LogErrorV(err.c_str());
             throw std::runtime_error(err);
         }
+
+        std::vector<GenericValue> noargs;
+        v = ee->runFunction(ee->FindFunctionNamed("main"), noargs);
+        std::cout << "Code was run.\n";
+
     } catch (const std::exception &e) {
         if (e.what()) {
             std::cout << e.what() << std::endl;
@@ -115,14 +166,10 @@ llvm::GenericValue CodeGenContext::runCode() {
         }
     }
 
-    std::vector<GenericValue> noargs;
-    GenericValue v = ee->runFunction(globalFn, noargs);
-    std::cout << "Code was run.\n";
-
     return v;
 }
 
-void CodeGenContext::setTarget() {
+void CodeGenContext::setTargets() {
     LLVMLinkInMCJIT();
     LLVMInitializeNativeTarget();
     LLVMInitializeNativeAsmPrinter();
@@ -236,7 +283,7 @@ llvm::Value *NDouble::codeGen(CodeGenContext &context) {
 }
 
 llvm::Value *NInteger::codeGen(CodeGenContext &context) {
-    std::cout << "Generating code for Integer: " << value << std::endl;
+    // std::cout << "Generating code for Integer: " << value << std::endl;
     return llvm::ConstantInt::get(llvm::Type::getInt64Ty(*context.TheContext),
                                   value, true);
 }
@@ -260,7 +307,7 @@ llvm::Value *NIdentifier::codeGen(CodeGenContext &context) {
         return context.Builder->CreateLoad(global->second.type, global->second.val, name.c_str());
     }
 
-    std::string err = "Variable not found!";
+    std::string err = "Variable not found! " + this->name;
     LogErrorV(err.c_str());
     throw std::runtime_error(err);
 }
@@ -294,21 +341,21 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
 
     switch (toktype) {
         case OPERATOR_PLUS:
-            std::cout << "Creating addition :" << std::endl;
+            // std::cout << "Creating addition :" << std::endl;
             return context.Builder->CreateAdd(lhs.codeGen(context),
                                               rhs.codeGen(context), "tempadd");
         case OPERATOR_MINUS:
-            std::cout << "Creating subtraction :" << std::endl;
+            // std::cout << "Creating subtraction :" << std::endl;
             return context.Builder->CreateSub(lhs.codeGen(context),
                                               rhs.codeGen(context), "tempsub");
 
         case OPERATOR_DIVIDE:
-            std::cout << "Creating division :" << std::endl;
+            // std::cout << "Creating division :" << std::endl;
             return context.Builder->CreateSDiv(lhs.codeGen(context),
                                                rhs.codeGen(context), "tempdiv");
 
         case OPERATOR_MULTIPLY:
-            std::cout << "Creating multiplication :" << std::endl;
+            // std::cout << "Creating multiplication :" << std::endl;
             return context.Builder->CreateMul(lhs.codeGen(context),
                                               rhs.codeGen(context), "tempmul");
 
@@ -424,11 +471,11 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
 
     if (alloc) {
 
-//        context.blocks.top()->locals[lhs.name].allocaVal = value;
+        //        context.blocks.top()->locals[lhs.name].allocaVal = value;
         return context.Builder->CreateStore(value, alloc);
     }
 
-    if(global != context.globals.end()){
+    if (global != context.globals.end()) {
         return context.Builder->CreateStore(value, global->second.val);
     }
 
@@ -470,7 +517,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
 
     llvm::FunctionType *FT = FunctionType::get(fnRetType, argTypes, false);
 
-    Function *fn = Function::Create(FT, GlobalValue::InternalLinkage, id.name,
+    Function *fn = Function::Create(FT, GlobalValue::ExternalLinkage, id.name,
                                     context.TheModule.get());
     assert(fn);
 
@@ -484,17 +531,21 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
 
         BasicBlock *BB = BasicBlock::Create(*context.TheContext.get(), "fnBlock", fn);
         context.pushBlock(BB);
-
         context.Builder->SetInsertPoint(BB);
 
+        i = 0;
+
         for (const auto &arg: fn->args()) {
+            auto argValue = fn->args().begin() + i;
+
             auto nameStr = arg.getName().str();
             AllocaInst *alloc = context.insertMemOnFnBlock(fn, nameStr, arg.getType());
             context.blocks.top()->locals[arg.getName().str()].allocaSpace = alloc;
 
             Value *nullVal = Constant::getNullValue(arg.getType());
-            assert(nullVal != nullptr && alloc != nullptr);
-            context.Builder->CreateStore(nullVal, alloc, false);
+            assert(nullVal && alloc && argValue);
+            //Store arg
+            context.Builder->CreateStore(*&argValue, alloc, false);
         }
 
         // Now generate the function body
@@ -520,7 +571,8 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
             ReturnInst::Create(*context.TheContext, BB);
         }
 
-        context.TheFPM->run(*fn, *context.TheFAM);
+
+        context.TheFPM->run(*fn);
         verifyFunction(*fn);
 
         context.popBlock();
@@ -593,25 +645,26 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
     // Check if Fn was defined
     const Function *fn = context.TheModule->getFunction(id.name);
 
-    if (fn) {
+    if (fn && find != context.globals.end()) {
         std::vector<Value *> args;
         if (arguments.size() == fn->arg_size()) {
             unsigned i = 0;
             for (auto &arg: this->arguments) {
                 Value *V = arg->codeGen(context);
-                Type *paramType = find->second.fnType->getParamType(i);
+                // size_t vals = find->second.fnType->getNumParams();
+                Type *paramType = fn->args().begin()[i].getType();
+                assert(V->getType() == paramType && "Argument type mismatch ");
                 Value *bitcastedArg =
                         context.Builder->CreateBitCast(V, paramType);// thanks bolt!
                 args.push_back(bitcastedArg);
                 i++;
             }
 
-            //Pass global args(if any)
             std::vector<std::pair<std::string, varData>> outerVars =
                     context.getOuterVars();
 
             for (const auto &var: outerVars) {
-                args.push_back(var.second.allocaSpace);
+                args.push_back(var.second.allocaVal);
             }
 
         } else {
@@ -626,15 +679,15 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
 
         // assert(find->first == ffind->getName());
 
-
         auto isVoid = fn->getReturnType()->isVoidTy();
 
-        auto valCall = context.Builder->CreateCall(
-            //Dont pass name if void(thx to LLMDEV)
-                find->second.fnType, find->second.val, args, (isVoid ? "" : find->first));
+        CallInst *valCall = context.Builder->CreateCall(
+                //Dont pass name if void(thx to LLMDEV)
+                fn->getFunctionType(), find->second.val, args, (isVoid ? "" : find->first));
+
+        assert(valCall && "Function call failed");
 
         return valCall;
-
 
     } else {
 

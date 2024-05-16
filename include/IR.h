@@ -10,6 +10,7 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instruction.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/Type.h>
 #include <llvm/LinkAllPasses.h>
@@ -31,10 +32,10 @@
 llvm::Value *LogErrorV(const char *Str);
 
 struct fnInfo {
-    llvm::Value *val; //Either a function or a global variable
-    llvm::Type *type;
-    llvm::FunctionType *fnType = nullptr; // if applies
-//    llvm::GlobalVariable* gvarAddr = nullptr;
+    llvm::Value *val;//Either a function or global variable ptr
+    llvm::Type *type; //ret type
+    llvm::FunctionType *fnType = nullptr;// if applies
+    //    llvm::GlobalVariable* gvarAddr = nullptr;
 };
 
 // relevant variable information to be inserted
@@ -84,25 +85,26 @@ public:
     std::stack<std::shared_ptr<CodeGenBlock>> blocks;
     std::unique_ptr<llvm::Module> TheModule;
     std::unique_ptr<llvm::IRBuilder<>> Builder;
+    llvm::ExecutionEngine *ee;
     std::map<std::string, fnInfo>
             globals;// will store Functions & global vaiables
 
     //Optimizations
-     std::unique_ptr<llvm::orc::KaleidoscopeJIT> TheJIT;
-     std::unique_ptr<llvm::FunctionPassManager> TheFPM;
-     std::unique_ptr<llvm::LoopAnalysisManager> TheLAM;
-     std::unique_ptr<llvm::FunctionAnalysisManager> TheFAM;
-     std::unique_ptr<llvm::CGSCCAnalysisManager> TheCGAM;
-     std::unique_ptr<llvm::ModuleAnalysisManager> TheMAM;
-     std::unique_ptr<llvm::PassInstrumentationCallbacks> ThePIC;
-     std::unique_ptr<llvm::StandardInstrumentations> TheSI;
-     llvm::ExitOnError ExitOnErr;
+    std::unique_ptr<llvm::orc::KaleidoscopeJIT> TheJIT;
+    std::unique_ptr<llvm::legacy::FunctionPassManager> TheFPM;
+    std::unique_ptr<llvm::LoopAnalysisManager> TheLAM;
+    std::unique_ptr<llvm::FunctionAnalysisManager> TheFAM;
+    std::unique_ptr<llvm::CGSCCAnalysisManager> TheCGAM;
+    std::unique_ptr<llvm::ModuleAnalysisManager> TheMAM;
+    std::unique_ptr<llvm::PassInstrumentationCallbacks> ThePIC;
+    std::unique_ptr<llvm::StandardInstrumentations> TheSI;
+    llvm::ExitOnError ExitOnErr;
 
     llvm::Function *globalFn;// Entry point function aka 'Main'
 
     CodeGenContext();
     void emitIR(NBlock &srcRoot);
-    void setTarget();
+    void setTargets();
     llvm::GenericValue runCode();
 
     llvm::AllocaInst *checkLocal(std::string &id,
@@ -114,7 +116,7 @@ public:
     llvm::AllocaInst *insertMemOnFnBlock(llvm::Function *fn, std::string &id,
                                          llvm::Type *);
 
-    llvm::Value* insertGlobal(std::string &id, llvm::Type *type);
+    llvm::Value *insertGlobal(std::string &id, llvm::Type *type);
 
     void pushBlock(llvm::BasicBlock *block) {
 

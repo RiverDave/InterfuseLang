@@ -1,12 +1,10 @@
-
-@a : int = 23;
-
-fn @bb() -> void {
-  @a = 42;
-
+fn @myfn (@b : int) -> int {
+  ret @b + 1;
 };
 
+fn @do_math(@a : int) -> int {
+    @x : int = @a * 5;
+    ret @x + 3;
+};
 
-@bb();
-
-
+@out(@do_math(12));
