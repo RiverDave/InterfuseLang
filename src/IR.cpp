@@ -87,7 +87,7 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
                                 TheModule.get());
 
     BasicBlock *bblock = BasicBlock::Create(*TheContext, "entry", globalFn, 0);
-    pushBlock(bblock);
+    pushBlock(bblock, "Entry block");
     Builder->SetInsertPoint(bblock);
 
     // Recursively generate code for each node in the AST
@@ -96,16 +96,18 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
         //Emit return instance to main function
         ReturnInst::Create(*TheContext, bblock);
 
-        //Verifyt module before transfering ownership to JIT
+        //Verify module before transfering ownership to JIT
         std::string moduleStr;
         llvm::raw_string_ostream errorStream(moduleStr);
+
+        TheModule->print(llvm::errs(), nullptr);
         if (llvm::verifyModule(*TheModule, &errorStream)) {
             std::cerr << "The module is not valid:\n"
                       << errorStream.str() << std::endl;
             throw std::runtime_error("Module is not valid");
         }
 
-        globalFn->print(llvm::errs());
+        // globalFn->print(llvm::errs());
 
         // Create the ExecutionEngine
         std::string eeError;
@@ -271,8 +273,10 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context) {
     std::for_each(statements.begin(), statements.end(),
                   [&](NStatement *stmt) {
                       last = stmt->codeGen(context);
+                      if(isa<llvm::ReturnInst>(last)){
+                          return;
+                      };
                   });
-
     return last;
 }
 
@@ -550,10 +554,23 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
 
         // Now generate the function body
         Value *generatedFnCode = fnBlock->codeGen(context);
-        context.blocks.top()->return_value = generatedFnCode;
+        context.blocks.top()->return_value = generatedFnCode;//Innecessary for now
+
+
+        //NOTE: Experimental for now...
+        if (context.blocks.top()->blockWrapper != BB) {//Basic block has probably changed
+            //Top should now be last block emmited from code gen
+
+            auto nBlock = context.blocks.top();
+            while (context.blocks.top()->blockWrapper != &fn->getEntryBlock()) {
+                context.popBlock();
+            }
+            context.blocks.top() = nBlock;// Copy last emitted block into the top
+        }
+
 
         bool hasReturnInst = false;
-        for (auto &I: *BB) {
+        for (auto &I: *context.blocks.top()->blockWrapper) {
             if (llvm::isa<llvm::ReturnInst>(&I)) {
                 hasReturnInst = true;
                 break;
@@ -568,11 +585,12 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         } else if (!hasReturnInst && fn->getReturnType()->isVoidTy()) {
             //Insert return instruction in case
             //user does not implicitly inserts a return statement
-            ReturnInst::Create(*context.TheContext, BB);
+            context.Builder->CreateRetVoid();
         }
 
 
-        context.TheFPM->run(*fn);
+        //TODO: INSERT TERMINATOR IN CASE WE RETURN A NON VOID VAR(TRUE CONT)
+        //        context.TheFPM->run(*fn);
         verifyFunction(*fn);
 
         context.popBlock();
@@ -581,7 +599,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         context.globals[this->id.name] =
                 fnInfo{fn, this->retType.getType(context), fn->getFunctionType()};
 
-        fn->print(llvm::errs());
+        // fn->print(llvm::errs());
 
         return fn;
     }
@@ -613,14 +631,12 @@ llvm::Value *NReturnStatement::codeGen(CodeGenContext &context) {
             LogErrorV(err.c_str());
             throw std::runtime_error(err);
         }
-        ReturnInst::Create(*context.TheContext, context.blocks.top()->blockWrapper);
+        // context.Builder->SetInsertPoint(context.blocks.top()->blockWrapper);
+        context.Builder->CreateRetVoid();
+
         return nullptr;
     }
     Value *retVal = expression->codeGen(context);
-
-    // Insert instruction in the current block
-    ReturnInst::Create(*context.TheContext, retVal,
-                       context.blocks.top()->blockWrapper);
 
     if (!retVal) {
         std::string_view err = "Return statement codegen failed";
@@ -628,9 +644,18 @@ llvm::Value *NReturnStatement::codeGen(CodeGenContext &context) {
         throw std::runtime_error(err.data());
     }
 
-    //    retVal->print(llvm::outs(), false);
-    //    std::cout << std::endl;
+    context.Builder->CreateRet(retVal);
     return retVal;
+    // Check if retVal is a PHINode
+    // if (llvm::isa<llvm::ReturnInst>(retVal)) {
+    //     // If it is, create a return instruction with the PHINode as its argument
+    //     ReturnInst *retInst = context.Builder->CreateRet(retVal);
+    //     return retInst;
+    // } else {
+    //     // If it's not, create a return instruction
+
+    //     return retVal;
+    // }
 }
 
 llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
@@ -660,12 +685,12 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
                 i++;
             }
 
-            std::vector<std::pair<std::string, varData>> outerVars =
-                    context.getOuterVars();
-
-            for (const auto &var: outerVars) {
-                args.push_back(var.second.allocaVal);
-            }
+            //            std::vector<std::pair<std::string, varData>> outerVars =
+            //                    context.getOuterVars();
+            //
+            //            for (const auto &var: outerVars) {
+            //                args.push_back(var.second.allocaVal);
+            //            }
 
         } else {
             std::string err =
@@ -697,6 +722,109 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
     }
 }
 
+llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
+
+    Value *vcond = this->condition->codeGen(context);
+    Type *vtype = vcond->getType();
+
+    if (!vcond) {
+        return nullptr;
+    }
+
+    //Compare val with its null equivalent to create bool comparison
+    if (vtype->isIntegerTy()) {
+
+        vcond = context.Builder->CreateICmpNE(vcond, ConstantInt::get(*context.TheContext, APInt(vcond->getType()->getIntegerBitWidth(), 0)), "ifcond");
+    } else if (vtype->isFloatingPointTy()) {
+
+        vcond = context.Builder->CreateFCmpONE(vcond, ConstantFP::get(*context.TheContext, APFloat(0.0)), "ifcond");
+
+    } else {//TODO: STR stuff
+        std::string err = "Unknown condition type detected";
+        LogErrorV(err.c_str());
+        throw std::runtime_error(err);
+    }
+
+    Function *fn = context.blocks.top()->blockWrapper->getParent();
+
+    BasicBlock *ifbb = BasicBlock::Create(*context.TheContext, "trueblock", fn);
+    BasicBlock *elsebb;
+    if (this->falseBlock) {
+        elsebb = BasicBlock::Create(*context.TheContext, "falseblock");
+    } else {
+
+        elsebb = nullptr;
+    }
+
+    //Basically basic block where any of the control flows unite
+    BasicBlock *mergebb = BasicBlock::Create(*context.TheContext, "truecont");
+
+    if (elsebb) {
+        context.Builder->CreateCondBr(vcond, ifbb, elsebb);
+    } else {
+        context.Builder->CreateCondBr(vcond, ifbb, mergebb);
+    }
+
+    context.Builder->SetInsertPoint(ifbb);
+    context.pushBlock(ifbb);
+    Value *ifval = nullptr;
+
+    //Emit ir for true block
+    for (auto &expr: trueBlock->statements) {
+        ifval = expr->codeGen(context);
+    }
+
+    ifbb = context.Builder->GetInsertBlock();
+    context.popBlock();
+    context.Builder->CreateBr(mergebb);
+
+
+    //TODO: check if this node is empty
+
+    Value *elseval = nullptr;
+    if (elsebb) {
+
+        fn->insert(fn->end(), elsebb);
+
+        context.Builder->SetInsertPoint(elsebb);
+        context.pushBlock(elsebb);
+
+        //Generate else block
+
+        for (auto &stmt: falseBlock->block->statements) {
+            elseval = stmt->codeGen(context);
+        }
+
+        elsebb = context.Builder->GetInsertBlock();
+        context.Builder->CreateBr(mergebb);
+
+        context.popBlock();
+    }
+
+
+    //Update for phi node
+    fn->insert(fn->end(), mergebb);
+    context.Builder->SetInsertPoint(mergebb);
+    context.pushBlock(mergebb);
+
+    //Basically expect an expression of the boolean expression datatype
+    //to terminate the block.
+
+    if (ifval->getType()->isVoidTy() || elseval->getType()->isVoidTy() /* || ifval->getType() != elseval->getType() */) {
+        //Return void
+        return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*context.TheContext));
+    }
+
+    PHINode *PN = context.Builder->CreatePHI(vtype, 2, "iftmp");
+
+    PN->addIncoming(ifval, ifbb);
+    if (elseval) {
+        PN->addIncoming(elseval, elsebb);
+    }
+
+    return PN;
+}
+
 llvm::Value *NWhileStatement::codeGen(CodeGenContext &context) {
     return nullptr;
 }
@@ -705,7 +833,6 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) { return nullptr; }
 
 llvm::Value *NString::codeGen(CodeGenContext &context) { return nullptr; }
 
-llvm::Value *NIfStatement::codeGen(CodeGenContext &context) { return nullptr; }
 
 llvm::Value *NElseStatement::codeGen(CodeGenContext &context) {
     return nullptr;

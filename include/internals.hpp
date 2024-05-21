@@ -32,7 +32,7 @@ llvm::Function *createCPrint(CodeGenContext &context) {
             *context.TheModule);
     func->setCallingConv(llvm::CallingConv::C);
 
-    func->print(llvm::errs());
+//    func->print(llvm::errs());
     return func;
 }
 
@@ -84,7 +84,7 @@ void createEchoFunction(CodeGenContext &context, llvm::Function *printfFn) {
     context.globals[func->getName().str()] =
             fnInfo{func, func->getReturnType(), func->getFunctionType()};
 
-    func->print(llvm::errs());
+//    func->print(llvm::errs());
 }
 
 void createCoreFunctions(CodeGenContext &context) {

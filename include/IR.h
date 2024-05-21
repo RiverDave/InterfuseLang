@@ -56,9 +56,9 @@ public:
     // Allocainst stores memory block occupied by that variable
     std::map<std::string, varData>
             locals;// Might be use to use another ptr here
-
     std::shared_ptr<CodeGenBlock> parent;// track parent block to access outer
                                          // scope variables
+    std::string blockName; // Merely experimental for now
 
     CodeGenBlock() : blockWrapper(nullptr), return_value(nullptr), locals() {}
     CodeGenBlock(const CodeGenBlock &other) {
@@ -67,6 +67,7 @@ public:
         blockWrapper = other.blockWrapper;
         return_value = other.return_value;
         parent = other.parent;
+        blockName = other.blockName;
 
         // NOTE: Might not be very memory efficient
         std::copy(other.locals.begin(), other.locals.end(),
@@ -111,6 +112,7 @@ public:
                                  std::shared_ptr<CodeGenBlock> block);
 
     std::vector<std::pair<std::string, varData>> getOuterVars();
+    llvm::Value* generateConditionalBlock(llvm::BasicBlock* bb);
 
     // Insert memory block on fn block(used to instantiate variables)
     llvm::AllocaInst *insertMemOnFnBlock(llvm::Function *fn, std::string &id,
@@ -118,7 +120,7 @@ public:
 
     llvm::Value *insertGlobal(std::string &id, llvm::Type *type);
 
-    void pushBlock(llvm::BasicBlock *block) {
+    void pushBlock(llvm::BasicBlock *block, std::string name = "") {
 
         std::optional<std::shared_ptr<CodeGenBlock>> current_node;
         std::shared_ptr<CodeGenBlock> next_assignable_node = nullptr;
@@ -142,6 +144,7 @@ public:
 
         blocks.top()->return_value = nullptr;
         blocks.top()->blockWrapper = block;
+        blocks.top()->blockName = name;
     }
 
     void popBlock() { blocks.pop(); }

@@ -1,10 +1,12 @@
-fn @myfn (@b : int) -> int {
-  ret @b + 1;
+fn @test (@a : int) -> int {
+
+  if @a {
+
+      @a = 90;
+  };
+
+  ret @a;
 };
 
-fn @do_math(@a : int) -> int {
-    @x : int = @a * 5;
-    ret @x + 3;
-};
-
-@out(@do_math(12));
+@my_var : int = @test(23);
+@out(@my_var);
