@@ -94,7 +94,7 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
     if (srcRoot.codeGen(*this)) {
 
         //Emit return instance to main function
-        ReturnInst::Create(*TheContext, bblock);
+        ReturnInst::Create(*TheContext, blocks.top()->blockWrapper);
 
         //Verify module before transfering ownership to JIT
         std::string moduleStr;
@@ -362,6 +362,32 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
             // std::cout << "Creating multiplication :" << std::endl;
             return context.Builder->CreateMul(lhs.codeGen(context),
                                               rhs.codeGen(context), "tempmul");
+
+        case OPERATOR_NOT_EQUALS:
+            // std::cout << "Creating not equals :" << std::endl;
+            return context.Builder->CreateICmpNE(lhs.codeGen(context),
+                                                 rhs.codeGen(context), "tempne");
+        case OPERATOR_EQUALS:
+            // std::cout << "Creating equals :" << std::endl;
+            return context.Builder->CreateICmpEQ(lhs.codeGen(context),
+                                                 rhs.codeGen(context), "tempeq");
+        case OPERATOR_GREATER_THAN:
+            // std::cout << "Creating greater than :" << std::endl;
+            return context.Builder->CreateICmpSGT(lhs.codeGen(context),
+                                                  rhs.codeGen(context), "tempgt");
+        case OPERATOR_LESS_THAN:
+            // std::cout << "Creating less than :" << std::endl;
+            return context.Builder->CreateICmpSLT(lhs.codeGen(context),
+                                                  rhs.codeGen(context), "templ");
+        case OPERATOR_GREATER_THAN_EQUALS:
+            // std::cout << "Creating greater than equals :" << std::endl;
+            return context.Builder->CreateICmpSGE(lhs.codeGen(context),
+                                                  rhs.codeGen(context), "tempgte");
+        case OPERATOR_LESS_THAN_EQUALS:
+            // std::cout << "Creating less than equals :" << std::endl;
+            return context.Builder->CreateICmpSLE(lhs.codeGen(context),
+                                                  rhs.codeGen(context), "temple");
+
 
         default:
             LogErrorV("Invalid binary op");

@@ -1,15 +1,21 @@
+```
 fn @test (@a : int) -> int  {
 
-  if @a {
-
-    ret @a;
-    
-  }else {
-    ret @a + 3000;
+  if @a <= 10 {
+    ret 0;
   };
-  ret @a;
 
+  ret 1;
 };
 
-@my_var : int = @test(23);
+@my_var : int = @test(4);
 @out(@my_var);
+
+```
+
+# Loop stuff
+
+for @i in 1 := 10 {
+  @out(1000);
+
+};
