@@ -1,11 +1,14 @@
-fn @test (@a : int) -> int {
+fn @test (@a : int) -> int  {
 
   if @a {
 
-      @a = 90;
+    ret @a;
+    
+  }else {
+    ret @a + 3000;
   };
-
   ret @a;
+
 };
 
 @my_var : int = @test(23);

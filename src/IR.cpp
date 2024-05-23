@@ -273,7 +273,7 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context) {
     std::for_each(statements.begin(), statements.end(),
                   [&](NStatement *stmt) {
                       last = stmt->codeGen(context);
-                      if(isa<llvm::ReturnInst>(last)){
+                      if (isa<llvm::ReturnInst>(last)) {
                           return;
                       };
                   });
@@ -570,6 +570,10 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
 
 
         bool hasReturnInst = false;
+        //TODO: If a function contains multiple blocks based on control flow statements
+        // the last block does not necessarily need contain a return statement
+        // if there's a return statement on both if else blocks. this is very 
+        // specific but is a thing to consider.
         for (auto &I: *context.blocks.top()->blockWrapper) {
             if (llvm::isa<llvm::ReturnInst>(&I)) {
                 hasReturnInst = true;
@@ -646,16 +650,6 @@ llvm::Value *NReturnStatement::codeGen(CodeGenContext &context) {
 
     context.Builder->CreateRet(retVal);
     return retVal;
-    // Check if retVal is a PHINode
-    // if (llvm::isa<llvm::ReturnInst>(retVal)) {
-    //     // If it is, create a return instruction with the PHINode as its argument
-    //     ReturnInst *retInst = context.Builder->CreateRet(retVal);
-    //     return retInst;
-    // } else {
-    //     // If it's not, create a return instruction
-
-    //     return retVal;
-    // }
 }
 
 llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
@@ -746,6 +740,8 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
     }
 
     Function *fn = context.blocks.top()->blockWrapper->getParent();
+    //Determine if there's an exit to the function
+    bool earlyReturn = false;
 
     BasicBlock *ifbb = BasicBlock::Create(*context.TheContext, "trueblock", fn);
     BasicBlock *elsebb;
@@ -776,10 +772,13 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
 
     ifbb = context.Builder->GetInsertBlock();
     context.popBlock();
-    context.Builder->CreateBr(mergebb);
 
+    if (!ifbb->getTerminator()) {
+        context.Builder->CreateBr(mergebb);
+    } else {
+        earlyReturn = true;
+    }
 
-    //TODO: check if this node is empty
 
     Value *elseval = nullptr;
     if (elsebb) {
@@ -796,9 +795,11 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
         }
 
         elsebb = context.Builder->GetInsertBlock();
-        context.Builder->CreateBr(mergebb);
-
         context.popBlock();
+
+        if (!elsebb->getTerminator()) {
+            context.Builder->CreateBr(mergebb);
+        }
     }
 
 
@@ -810,11 +811,17 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
     //Basically expect an expression of the boolean expression datatype
     //to terminate the block.
 
-    if (ifval->getType()->isVoidTy() || elseval->getType()->isVoidTy() /* || ifval->getType() != elseval->getType() */) {
+    if (ifval->getType()->isVoidTy() || (elseval && elseval->getType()->isVoidTy()) /* || ifval->getType() != elseval->getType() */) {
         //Return void
         return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*context.TheContext));
     }
 
+    if (earlyReturn) {
+        return ifval;
+    }
+
+    //NOTE: Don't access this block if there's an early return
+    //It took me fucking days to figure that out...
     PHINode *PN = context.Builder->CreatePHI(vtype, 2, "iftmp");
 
     PN->addIncoming(ifval, ifbb);
@@ -822,6 +829,7 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
         PN->addIncoming(elseval, elsebb);
     }
 
+    // return context.Builder->CreateRet(PN);
     return PN;
 }
 
