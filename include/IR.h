@@ -31,21 +31,44 @@
 
 llvm::Value *LogErrorV(const char *Str);
 
-struct fnInfo {
-    llvm::Value *val;//Either a function or global variable ptr
-    llvm::Type *type; //ret type
-    llvm::FunctionType *fnType = nullptr;// if applies
-    //    llvm::GlobalVariable* gvarAddr = nullptr;
-};
+namespace fuseData {
 
-// relevant variable information to be inserted
-// into function block
-struct varData {
-    std::string name;
-    llvm::Type *type;
-    llvm::AllocaInst *allocaSpace = nullptr;// variable may have been declared outside
-    llvm::Value *allocaVal = nullptr;       // variable may have been declared outside
-};
+    struct globalInfo {
+        llvm::Value *val;                    //Either a function or global variable ptr
+        llvm::Type *type;                    //ret type
+        llvm::FunctionType *fnType = nullptr;// if applies
+        //    llvm::GlobalVariable* gvarAddr = nullptr;
+    };
+
+    // relevant variable information to be inserted
+    // into function block
+    struct varData {
+        std::string name;
+        llvm::Type *type;
+        llvm::AllocaInst *allocaSpace = nullptr;// Pointer where it is allocated
+        llvm::Value *allocaVal = nullptr;       // The actual value it is holding
+
+//        varData(std::string& name, llvm::Type* type, llvm::AllocaInst *allocaSpace = nullptr, llvm::Value* allocaVal = nullptr ){
+//
+//            this->name = name;
+//            this->type = type;
+//            this->allocaSpace = allocaSpace;
+//            this->allocaVal = allocaVal;
+//
+//        }// Pointer where it is allocated
+//        varData(const varData& other){
+//            this->name = other.name;
+//            this->type = other.type;
+//            this->allocaSpace = other.allocaSpace;
+//
+//            assert(this->allocaSpace->getAllocatedType() == other.allocaSpace->getAllocatedType());
+//            this->allocaVal = other.allocaVal;
+//        }
+    };
+
+
+}// namespace fuseData
+
 
 // Represents Every block of code
 // Wrapper around basic blocks
@@ -54,11 +77,11 @@ public:
     llvm::BasicBlock *blockWrapper;
     llvm::Value *return_value;
     // Allocainst stores memory block occupied by that variable
-    std::map<std::string, varData>
-            locals;// Might be use to use another ptr here
+    std::map<std::string, fuseData::varData>
+            locals;                      // Might be use to use another ptr here
     std::shared_ptr<CodeGenBlock> parent;// track parent block to access outer
                                          // scope variables
-    std::string blockName; // Merely experimental for now
+    std::string blockName;               // Merely experimental for now
 
     CodeGenBlock() : blockWrapper(nullptr), return_value(nullptr), locals() {}
     CodeGenBlock(const CodeGenBlock &other) {
@@ -70,8 +93,8 @@ public:
         blockName = other.blockName;
 
         // NOTE: Might not be very memory efficient
-        std::copy(other.locals.begin(), other.locals.end(),
-                  std::inserter(locals, locals.end()));
+         std::copy(other.locals.begin(), other.locals.end(),
+                   std::inserter(locals, locals.end()));
     };
 };
 
@@ -87,7 +110,7 @@ public:
     std::unique_ptr<llvm::Module> TheModule;
     std::unique_ptr<llvm::IRBuilder<>> Builder;
     llvm::ExecutionEngine *ee;
-    std::map<std::string, fnInfo>
+    std::map<std::string, fuseData::globalInfo>
             globals;// will store Functions & global vaiables
 
     //Optimizations
@@ -108,29 +131,30 @@ public:
     void setTargets();
     llvm::GenericValue runCode();
 
-    llvm::AllocaInst *checkLocal(std::string &id,
+    llvm::AllocaInst* checkLocal(std::string &id,
                                  std::shared_ptr<CodeGenBlock> block);
 
-    std::vector<std::pair<std::string, varData>> getOuterVars();
-    llvm::Value* generateConditionalBlock(llvm::BasicBlock* bb);
+    std::vector<std::pair<std::string, fuseData::varData>> getOuterVars();
 
     // Insert memory block on fn block(used to instantiate variables)
     llvm::AllocaInst *insertMemOnFnBlock(llvm::Function *fn, std::string &id,
                                          llvm::Type *);
+    
+    llvm::Value* checkId(std::string&);
 
-    llvm::Value *insertGlobal(std::string &id, llvm::Type *type);
+    llvm::GlobalVariable *insertGlobal(std::string &id, llvm::Type *type);
 
     void pushBlock(llvm::BasicBlock *block, std::string name = "") {
 
         std::optional<std::shared_ptr<CodeGenBlock>> current_node;
-        std::shared_ptr<CodeGenBlock> next_assignable_node = nullptr;
+        std::shared_ptr<CodeGenBlock> parentNode = nullptr;
 
         if (blocks.size() > 0 && blocks.top().get()) {
             current_node = blocks.top();
         }
 
         if (current_node.has_value()) {
-            next_assignable_node =
+            parentNode =
                     std::make_shared<CodeGenBlock>(*current_node.value().get());
             // blocks.top()->parent->blockWrapper = current_node->blockWrapper;
         }
@@ -138,11 +162,10 @@ public:
         blocks.push(std::make_shared<CodeGenBlock>());
 
         // Basically: Next block holds a reference to its parent block
-        // This proves to be useful when searching for a variable defined in
-        // another scope
-        blocks.top()->parent = next_assignable_node;
-
-        blocks.top()->return_value = nullptr;
+        // This proves to be useful when searching for a variable defined in a
+        // parent scope
+        blocks.top()->parent = parentNode;
+        blocks.top()->return_value = nullptr; //Not being used at all rn
         blocks.top()->blockWrapper = block;
         blocks.top()->blockName = name;
     }

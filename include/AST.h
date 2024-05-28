@@ -83,12 +83,12 @@ public:
 
 class NForStatement : public NStatement {
 public:
-  NExpression *initialization;
+  NIdentifier *initialization; // This is an id 
   NExpression *condition;
   NExpression *iteration;
   NBlock *loopBlock;
 
-  NForStatement(NExpression *initialization, NExpression *condition,
+  NForStatement(NIdentifier *initialization, NExpression *condition,
                 NExpression *iteration, NBlock *loopBlock)
       : initialization(initialization), condition(condition),
         iteration(iteration), loopBlock(loopBlock) {}

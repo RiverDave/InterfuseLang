@@ -82,7 +82,7 @@ void createEchoFunction(CodeGenContext &context, llvm::Function *printfFn) {
     ReturnInst::Create(*context.TheContext, bblock);
     context.popBlock();
     context.globals[func->getName().str()] =
-            fnInfo{func, func->getReturnType(), func->getFunctionType()};
+            fuseData::globalInfo{func, func->getReturnType(), func->getFunctionType()};
 
 //    func->print(llvm::errs());
 }

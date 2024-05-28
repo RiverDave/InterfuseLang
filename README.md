@@ -44,4 +44,15 @@ which is essentially a wrapper around the `printf` function in C.
 ```c
 @out(@sum);
 ``` 
+- For loops :
+```c
 
+fn @my_fn() -> void {
+
+    for @i in @i < 100 : @i + 1 {
+       @out(@i);
+    };
+
+};
+
+```

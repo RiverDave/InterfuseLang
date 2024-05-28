@@ -266,18 +266,12 @@ for_stmt:
 //TODO: id wont be a var decl in this case but rather a local defined within the loop, in the ast 
 //we should check if the id is defined within the current scope
 //inclusive range: for @i in 1 := 10 {...
-    TKFOR expr TKIN expr TKRANGE_INCLUSIVE expr block
+
+//Non inclusive range: for @i in @i < 10 : @i = @i + 1 {...
+    TKFOR id TKIN expr TKCOLON expr block
     {
 
-        $$ = new NForStatement($<id>2, $4, $6, $7);
-        std::cout << "Init for statememnt" << std::endl;
-    } | 
-
-//Non inclusive range: for @i in 1 : 10 {...
-    TKFOR expr TKIN expr TKCOLON expr block
-    {
-
-        $$ = new NForStatement($<id>2, $4, $6, $7);
+        $$ = new NForStatement($2, $4, $6, $7);
         std::cout << "Init for statememnt" << std::endl;
     }
     ;

@@ -1,6 +1,8 @@
 #include "../include/IR.h"
 #include "../include/internals.hpp"
 #include <algorithm>
+#include <cassert>
+#include <cstdio>
 #include <iterator>
 #include <llvm-c/Target.h>
 #include <llvm-c/TargetMachine.h>
@@ -94,11 +96,14 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
     if (srcRoot.codeGen(*this)) {
 
         //Emit return instance to main function
-        ReturnInst::Create(*TheContext, blocks.top()->blockWrapper);
+        ReturnInst::Create(*TheContext, &globalFn->back());
 
         //Verify module before transfering ownership to JIT
         std::string moduleStr;
         llvm::raw_string_ostream errorStream(moduleStr);
+
+        assert(blocks.size() == 1); //Important!!
+        verifyFunction(*globalFn);
 
         TheModule->print(llvm::errs(), nullptr);
         if (llvm::verifyModule(*TheModule, &errorStream)) {
@@ -182,15 +187,32 @@ void CodeGenContext::setTargets() {
     TheModule->setTargetTriple(TargetTriple);
 }
 
-// Helper
+// Helpers
+llvm::Value *CodeGenContext::checkId(std::string &id) {
+
+    auto localCheck = checkLocal(id, blocks.top());
+
+    if (localCheck) {
+        return localCheck;
+    }
+
+    auto globalCheck = globals.find(id);
+
+    if (globalCheck != globals.end()) {
+        GlobalVariable *global = TheModule->getNamedGlobal(id);
+        return global;
+    }
+
+    return nullptr;
+}
+
 llvm::Value *LogErrorV(const char *Str) {
     LogError(Str);
     return nullptr;
 }
 
 // TODO: Test this
-llvm::AllocaInst *
-CodeGenContext::checkLocal(std::string &id,
+llvm::AllocaInst* CodeGenContext::checkLocal(std::string &id,
                            std::shared_ptr<CodeGenBlock> parent_block) {
 
     auto it = parent_block->locals.find(id);
@@ -207,24 +229,27 @@ CodeGenContext::checkLocal(std::string &id,
     return nullptr;
 }
 
-llvm::Value *CodeGenContext::insertGlobal(std::string &id, llvm::Type *type) {
+llvm::GlobalVariable *CodeGenContext::insertGlobal(std::string &id, llvm::Type *type) {
     TheModule->getOrInsertGlobal(id, type);
     GlobalVariable *gval = TheModule->getNamedGlobal(id);
     assert(gval && "Global variable not emitted");
     gval->setLinkage(GlobalValue::ExternalLinkage);
-    gval->setInitializer(Constant::getNullValue(type));//Important, else doesn't emit var for some reason
+    gval->setInitializer(Constant::getNullValue(type));//Important, else doesn't emit for some reason
     const DataLayout &DL = TheModule->getDataLayout();
 
     auto alignment = DL.getABITypeAlign(type);
     gval->setAlignment(llvm::MaybeAlign(alignment));
 
+    //This is a global variable basically
     return gval;
 }
 
-std::vector<std::pair<std::string, varData>>
+//Unsure about the actual use case of this function
+//
+std::vector<std::pair<std::string, fuseData::varData>>
 CodeGenContext::getOuterVars() {
 
-    std::vector<std::pair<std::string, varData>> allocations;
+    std::vector<std::pair<std::string, fuseData::varData>> allocations;
 
     // Start with the current block
     auto currentBlock = blocks.top();
@@ -273,9 +298,9 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context) {
     std::for_each(statements.begin(), statements.end(),
                   [&](NStatement *stmt) {
                       last = stmt->codeGen(context);
-                      if (isa<llvm::ReturnInst>(last)) {
-                          return;
-                      };
+                      //                          if (isa<llvm::ReturnInst>(last.value())) {
+                      //                              return;
+                      //                          };
                   });
     return last;
 }
@@ -299,21 +324,28 @@ llvm::Value *NExpressionStatement::codeGen(CodeGenContext &context) {
 // Variable expression
 llvm::Value *NIdentifier::codeGen(CodeGenContext &context) {
     AllocaInst *V = context.checkLocal(this->name, context.blocks.top());
-    auto global = context.globals.find(this->name);
 
+    //Check the current scope, else check for the global variables
     if (V) {
         // Load variable from the stack
+        //FIXME: WHEN ALLOCATING A LOOP VAR INSIDE A FUNCTION, ITS TYPE IS NOT INT FOR SOME REASON
+        auto v = V->getAllocatedType();
         return context.Builder->CreateLoad(V->getAllocatedType(), V, name.c_str());
     }
 
+    auto global = context.globals.find(this->name);
+
     if (global != context.globals.end()) {
 
-        return context.Builder->CreateLoad(global->second.type, global->second.val, name.c_str());
+        //Global var ptr
+        auto gptr = context.TheModule->getGlobalVariable(name);
+        return context.Builder->CreateLoad(global->second.type, gptr, name.c_str());
     }
 
     std::string err = "Variable not found! " + this->name;
     LogErrorV(err.c_str());
-    throw std::runtime_error(err);
+     throw std::runtime_error(err);
+    return nullptr;
 }
 
 llvm::Type *NIdentifier::getType(CodeGenContext &context) const {
@@ -341,7 +373,7 @@ llvm::Type *NIdentifier::getType(CodeGenContext &context) const {
 }
 
 llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
-    auto toktype = op.getType();
+    TOKEN_TYPE toktype = op.getType();
 
     switch (toktype) {
         case OPERATOR_PLUS:
@@ -362,7 +394,7 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
             // std::cout << "Creating multiplication :" << std::endl;
             return context.Builder->CreateMul(lhs.codeGen(context),
                                               rhs.codeGen(context), "tempmul");
-
+            //TODO: IMPLEMENT THIS FOR FLOATS?
         case OPERATOR_NOT_EQUALS:
             // std::cout << "Creating not equals :" << std::endl;
             return context.Builder->CreateICmpNE(lhs.codeGen(context),
@@ -375,10 +407,14 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
             // std::cout << "Creating greater than :" << std::endl;
             return context.Builder->CreateICmpSGT(lhs.codeGen(context),
                                                   rhs.codeGen(context), "tempgt");
-        case OPERATOR_LESS_THAN:
+        case OPERATOR_LESS_THAN:{
+
+            Value* left = this->lhs.codeGen(context);
+            Value* right =  this->rhs.codeGen(context);
+            return context.Builder->CreateICmpSLT(left, right, "templ");
+        }
             // std::cout << "Creating less than :" << std::endl;
-            return context.Builder->CreateICmpSLT(lhs.codeGen(context),
-                                                  rhs.codeGen(context), "templ");
+
         case OPERATOR_GREATER_THAN_EQUALS:
             // std::cout << "Creating greater than equals :" << std::endl;
             return context.Builder->CreateICmpSGE(lhs.codeGen(context),
@@ -404,17 +440,17 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
     if (context.Builder->GetInsertBlock() == nullptr) {
 
         // std::cout << "FN has no insertBLock" << std::endl;
-        //  Insert at the beginning of the function
+        //  Insert alloc at the beginning of the function
         context.Builder->SetInsertPoint(&parentFunction->getEntryBlock());
 
-    } else if (context.Builder->GetInsertBlock()->getParent() == nullptr) {
+    } else if (!context.Builder->GetInsertBlock()->getParent()) {
         // NOTE: Unsure about this logic path might not be necessary...
         std::cout << "FN has no parent" << std::endl;
         return nullptr;
     }
 
     AllocaInst *alloc = nullptr;
-    Value *gVar = nullptr;
+    GlobalVariable *gVar = nullptr;
 
     //    auto locals = context.blocks.top()->locals;
 
@@ -433,9 +469,11 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
 
     if (find == context.blocks.top()->locals.end()) {
 
-        //Current function is parent, declare variable as global
+        //Current function is entry(main), declare variable as global
         if (parentFunction->getName() == "main") {
-            gVar = context.insertGlobal(this->id->name, this->type.getType(context));
+
+            //This returns a global Variable obj
+            gVar = reinterpret_cast<GlobalVariable *>(context.insertGlobal(this->id->name, this->type.getType(context)));
 
             if (!gVar) {
                 std::string err{"Error inserting global variable"};
@@ -443,6 +481,9 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
                 throw std::runtime_error(err);
             }
 
+            context.globals[id->name] = fuseData::globalInfo{nullptr, varType};
+
+            //var declared in an inner scope, allocate variable on the stack
         } else {
 
             alloc = context.insertMemOnFnBlock(parentFunction, id->name, varType);
@@ -461,7 +502,9 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
     if (!assignmentExpr) {
         // Initialize empty val to null
         assignedVal = Constant::getNullValue(varType);
+        context.globals[this->id->name].val = assignedVal;
     } else {
+        //Emit assignment IR
         assignedVal = assignmentExpr->codeGen(context);
 
         if (alloc) {
@@ -469,17 +512,24 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
             context.blocks.top()->locals[id->name].allocaVal = assignedVal;
         } else {
 
-            //Map global var
-            context.globals[this->id->name] = fnInfo{gVar, varType};
+            //Map global var: rather than storing directly the global var obj directly, it is much more
+            //convinient to store the value we'd stored in it. We can get the global obj any time with
+            //the module.
+            context.globals[this->id->name] = fuseData::globalInfo{assignedVal, varType};
         }
     }
 
 
     // assignedVal->print(llvm::outs(), false);
     // std::cout << std::endl;
-    auto storedData = alloc ? alloc : gVar;
+//    auto storedData = alloc ? alloc : gVar;
+   if(alloc) {
 
-    return context.Builder->CreateStore(assignedVal, storedData);
+       return context.Builder->CreateStore(assignedVal, alloc);
+   }else{
+       return context.Builder->CreateStore(assignedVal, gVar);
+
+   }
 }
 
 llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
@@ -501,16 +551,18 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
 
     if (alloc) {
 
-        //        context.blocks.top()->locals[lhs.name].allocaVal = value;
+        context.blocks.top()->locals[lhs.name].allocaVal = value;
         return context.Builder->CreateStore(value, alloc);
     }
 
     if (global != context.globals.end()) {
-        return context.Builder->CreateStore(value, global->second.val);
+        context.globals[lhs.name].val = value;
+
+        auto globalPtr = context.TheModule->getGlobalVariable(lhs.name);
+        return context.Builder->CreateStore(value, globalPtr);
     }
 
     // Prevent void assignment
-
     LogErrorV("Unknown variable name");
     throw std::runtime_error("Unknown variable name");
 }
@@ -560,7 +612,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         }
 
         BasicBlock *BB = BasicBlock::Create(*context.TheContext.get(), "fnBlock", fn);
-        context.pushBlock(BB);
+        context.pushBlock(BB, "fnentryblock");
         context.Builder->SetInsertPoint(BB);
 
         i = 0;
@@ -584,28 +636,32 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
 
 
         //NOTE: Experimental for now...
-        if (context.blocks.top()->blockWrapper != BB) {//Basic block has probably changed
-            //Top should now be last block emmited from code gen
-
-            auto nBlock = context.blocks.top();
-            while (context.blocks.top()->blockWrapper != &fn->getEntryBlock()) {
-                context.popBlock();
-            }
-            context.blocks.top() = nBlock;// Copy last emitted block into the top
-        }
+//        if (context.blocks.top()->blockWrapper != BB) {//Basic block has probably changed
+//            //Top should now be last block emmited from code gen
+//
+//            auto nBlock = context.blocks.top();
+//            //NOTE: THis might lead to errors, considering a function
+//            //can have multiple blocks inserted at its end because of
+//            //if stmts or loops...
+//            while (context.blocks.top()->blockWrapper != &fn->getEntryBlock()) {
+//                context.popBlock();
+//            }
+//            context.blocks.top() = nBlock;// Copy last emitted block into the top
+//        }
 
 
         bool hasReturnInst = false;
         //TODO: If a function contains multiple blocks based on control flow statements
         // the last block does not necessarily need contain a return statement
-        // if there's a return statement on both if else blocks. this is very 
+        // if there's a return statement on both if else blocks. this is very
         // specific but is a thing to consider.
-        for (auto &I: *context.blocks.top()->blockWrapper) {
+        for (auto &I : fn->back()) { // -> check last emmited block from function
             if (llvm::isa<llvm::ReturnInst>(&I)) {
                 hasReturnInst = true;
                 break;
             }
         }
+
 
         if (!hasReturnInst && !fn->getReturnType()->isVoidTy()) {
             std::string err =
@@ -619,7 +675,6 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         }
 
 
-        //TODO: INSERT TERMINATOR IN CASE WE RETURN A NON VOID VAR(TRUE CONT)
         //        context.TheFPM->run(*fn);
         verifyFunction(*fn);
 
@@ -627,7 +682,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         context.Builder->SetInsertPoint(context.blocks.top()->blockWrapper);
 
         context.globals[this->id.name] =
-                fnInfo{fn, this->retType.getType(context), fn->getFunctionType()};
+                fuseData::globalInfo{fn, this->retType.getType(context), fn->getFunctionType()};
 
         // fn->print(llvm::errs());
 
@@ -636,7 +691,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
 
 
     context.globals[this->id.name] =
-            fnInfo{fn, this->retType.getType(context), fn->getFunctionType()};
+            fuseData::globalInfo{fn, this->retType.getType(context), fn->getFunctionType()};
     return fn;
 }
 
@@ -688,7 +743,7 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
     auto find = context.globals.find(this->id.name);
 
     // Check if Fn was defined
-    const Function *fn = context.TheModule->getFunction(id.name);
+    Function *fn = context.TheModule->getFunction(id.name);
 
     if (fn && find != context.globals.end()) {
         std::vector<Value *> args;
@@ -728,7 +783,7 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
 
         CallInst *valCall = context.Builder->CreateCall(
                 //Dont pass name if void(thx to LLMDEV)
-                fn->getFunctionType(), find->second.val, args, (isVoid ? "" : find->first));
+                fn->getFunctionType(), fn, args, (isVoid ? "" : find->first));
 
         assert(valCall && "Function call failed");
 
@@ -843,6 +898,8 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
     }
 
     if (earlyReturn) {
+
+        context.popBlock();
         return ifval;
     }
 
@@ -855,6 +912,7 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
         PN->addIncoming(elseval, elsebb);
     }
 
+    context.popBlock();
     // return context.Builder->CreateRet(PN);
     return PN;
 }
@@ -863,7 +921,148 @@ llvm::Value *NWhileStatement::codeGen(CodeGenContext &context) {
     return nullptr;
 }
 
-llvm::Value *NForStatement::codeGen(CodeGenContext &context) { return nullptr; }
+llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
+
+    //Loop init expression
+
+    Function *parentFn = context.blocks.top()->blockWrapper->getParent();
+    Value *initVar = context.checkId(this->initialization->name);
+
+    bool isAlloca = false;
+
+    if (initVar) {
+        if (llvm::AllocaInst *allocInst = llvm::dyn_cast<llvm::AllocaInst>(initVar)) {
+            isAlloca = true;
+        }
+    }
+
+    //Allocation in case a new variable is inserted(var was not defined)
+    BasicBlock *stepBB = BasicBlock::Create(*context.TheContext, "stepBlock", parentFn);
+    BasicBlock *loopBB = BasicBlock::Create(*context.TheContext, "loop", parentFn);
+
+
+    AllocaInst *allocInst = nullptr;
+    GlobalVariable *gVar;
+    //Variable reference not found, allocate memory.
+    if (!initVar) {
+
+        //I assume loop variables are whole integers
+        //TODO: This alloc should be inserted on a new block(loop block?)
+        allocInst = context.insertMemOnFnBlock(parentFn, this->initialization->name, llvm::Type::getInt64Ty(*context.TheContext));
+
+        if (!allocInst) {
+            std::string err =
+                    "Error initiallizing loop alloca: " + this->initialization->name;
+            LogErrorV(err.c_str());
+            throw std::runtime_error(err);
+        }
+
+
+        Value *nStoredVal = Constant::getNullValue(Type::getInt64Ty(*context.TheContext));
+        context.Builder->CreateStore(nStoredVal, allocInst);
+
+        context.Builder->CreateBr(stepBB);
+        context.Builder->SetInsertPoint(stepBB);
+        context.pushBlock(stepBB, "stepbb");
+
+
+        context.blocks.top()->locals[initialization->name] = fuseData::varData{initialization->name, Type::getInt64Ty(*context.TheContext), allocInst, nStoredVal};
+        isAlloca = true;// Var didn't exist so allocate it for the sake of the current loop
+
+    } else {
+
+      //Assert variable as an integer:
+
+        allocInst = llvm::dyn_cast<llvm::AllocaInst>(initVar);// TODO: REFORMAT THIS WHOLE THING
+        if (isAlloca) {
+            auto allocType = allocInst->getAllocatedType();
+            if (!allocType->isIntegerTy()) {
+                std::string err =
+                        "Attempt to initialize non integer variable in for loop: " + this->initialization->name;
+                LogErrorV(err.c_str());
+                throw std::runtime_error(err);
+            }
+
+            context.Builder->CreateLoad(Type::getInt64Ty(*context.TheContext), allocInst, this->initialization->name.c_str());
+        } else {
+            //I love spaghetti code
+            //Search amongst globals to verify that its type is an integer
+            auto global = context.globals.find(this->initialization->name);
+            if (!global->second.type->isIntegerTy()) {
+                std::string err =
+                        "Attempt to initialize non integer variable in for loop: " + this->initialization->name;
+                LogErrorV(err.c_str());
+                throw std::runtime_error(err);
+            }
+
+            gVar = context.TheModule->getGlobalVariable(initialization->name);
+            assert(gVar);
+            context.Builder->CreateLoad(global->second.type, gVar, global->first.c_str());
+        }
+
+        context.Builder->CreateBr(stepBB);
+        context.Builder->SetInsertPoint(stepBB);
+        context.pushBlock(stepBB, "stepbb");
+    }
+
+
+    //Keep track of old value stored(in case of shadowing, this is not being used for now...)
+
+    //Emit end condition
+    Value *endCond = this->condition->codeGen(context);
+
+    BasicBlock *loopEndBB = BasicBlock::Create(*context.TheContext, "loopend", parentFn);
+    //This is basically what produces the loop, as long as this condition evaluates to false, else we'll create a goto
+    //back to the loop label
+    context.Builder->CreateCondBr(endCond, loopBB, loopEndBB);
+
+    //context.popBlock(); //FIXME: THIS CAUSES AN EXCEPTION & POTENTIALLY AN INFINITE LOOP(SOMEHOW)
+
+    //Emit IR
+    context.Builder->SetInsertPoint(loopBB);
+    context.pushBlock(loopBB, "loopbb");
+    assert(context.blocks.top()->parent);
+
+    //emit loop body
+    if (!this->loopBlock->codeGen(context)) {
+        //        return nullptr;
+    }
+
+    //Emit step val
+    Value *stepVal = nullptr;
+    if (this->iteration) {
+        stepVal = iteration->codeGen(context);
+        if (!stepVal || stepVal->getType()->isVoidTy()) {
+            return nullptr;
+        }
+        stepVal->print(llvm::errs());
+    }
+
+    if (isAlloca) {
+//         auto curVar = context.Builder->CreateLoad(allocInst->getAllocatedType(), allocInst, initialization->name);
+        //Store step expression into current variabl
+        Value *next_val = context.Builder->CreateStore(stepVal, allocInst);
+        next_val->print(llvm::errs());
+        assert(next_val);
+
+    } else {
+        Value *next_val = context.Builder->CreateStore(stepVal, gVar);
+        next_val->print(llvm::errs());
+        assert(next_val);
+    }
+    context.Builder->CreateBr(stepBB);
+
+    //This pops ensure that anything allocated in these blocks is not accessible outside of the loop scope
+    context.popBlock(); //pop step block
+    context.popBlock(); //pop loop block
+
+    context.Builder->SetInsertPoint(loopEndBB);
+//    context.pushBlock(loopEndBB);
+//    assert(context.blocks.top()->parent);
+
+
+    return Constant::getNullValue(Type::getInt64Ty(*context.TheContext));
+}
 
 llvm::Value *NString::codeGen(CodeGenContext &context) { return nullptr; }
 

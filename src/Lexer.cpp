@@ -272,7 +272,6 @@ Token checkKeywordFromMap(
 Lexer::Lexer(const std::string &input)
     : input(input), _position(this->input.begin()) {}
 
-// FIXME: This is getting called twice for some reason
 Lexer::Lexer(const std::fstream &src) : input() {
 
   // Read file and store its data it in a string_view
