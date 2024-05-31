@@ -63,12 +63,12 @@
 %token<token> TKPAROPEN TKPARCLOSE
 %token<token> TKFUNCTION_KEY
 %token<token> TKIF TKELSE TKELSEIF 
-%token<token> TKFOR TKIN TKBREAK
+%token<token> TKFOR TKIN TKBREAK TKCONT
 
 %type<id> id
 %type<varvec> fn_args
 %type<exprs> fn_call_args
-%type<stmt> stmt var_decl fn_decl if_stmt for_stmt break_stmt
+%type<stmt> stmt var_decl fn_decl if_stmt for_stmt break_stmt continue_stmt
 %type<else_stmt> else_stmt
 
 //%type<for_stmt> for_stmt
@@ -171,10 +171,13 @@ stmt:
     break_stmt
     {
         $$ = new NBreakStatement();
-        std::cout << $$->getStatementType() << std::endl;
-        std::cout << "Parsed break_stmt" << std::endl;
 
 
+    } |
+    continue_stmt
+    {
+        $$ = new NContinueStatement();
+        std::cout << "Parsed continue stmt" << std::endl;
     }
     ;
 
@@ -319,6 +322,10 @@ else_stmt:
 
 break_stmt:
     TKBREAK
+    ;
+
+continue_stmt:
+    TKCONT
     ;
 
 expr:

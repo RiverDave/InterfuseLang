@@ -242,6 +242,12 @@ public:
     virtual std::string getStatementType() override { return "NBreakStatement"; }
 };
 
+class NContinueStatement : public NStatement {
+public:
+    NContinueStatement() = default;
+    virtual llvm::Value *codeGen(CodeGenContext &context) override;
+};
+
 inline std::unique_ptr<Node> LogError(const char *Str) {
     fprintf(stderr, "Error: %s\n", Str);
     return nullptr;

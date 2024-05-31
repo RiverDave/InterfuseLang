@@ -125,7 +125,9 @@ public:
     llvm::ExitOnError ExitOnErr;
 
     //Loop exit stuff(purely experimental)
+    std::optional<llvm::BasicBlock*> loop_start_bb;
     std::optional<llvm::BasicBlock*> next_jumpable_bb;
+    bool exit_loop = false;
 
     llvm::Function *globalFn;// Entry point function aka 'Main'
 

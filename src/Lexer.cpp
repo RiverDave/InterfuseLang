@@ -178,6 +178,10 @@ extern "C" int yylex() {
             yylval.token = new Token(token);
             return TKNEGATION;
 
+        case KEYWORD_LOOP_CONTINUE:
+            yylval.token = new Token(token);
+            return TKCONT;
+
         // case COMMENT_SINGLE_LINE:
         //   yylval.token = new Token(token);
         //   return TKSINGLECOMMENT;
@@ -260,7 +264,7 @@ static const std::unordered_map<std::string, TOKEN_TYPE> keywordMap = {
         {"ret", KEYWORD_RET},
         {"fn", KEYWORD_PROCEDURE},
         {"break", KEYWORD_LOOP_BREAK},
-
+        {"continue", KEYWORD_LOOP_CONTINUE},
 };
 
 static const std::unordered_map<std::string, TOKEN_TYPE> dataTypeMap = {

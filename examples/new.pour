@@ -1,13 +1,19 @@
-fn @test (@a : int) -> int  {
+fn @test () -> int  {
 
-  for @a in @a < 100 : @a + 1 {
-    @out(@a);
+  for @i in @i < 100 : @i + 1  {
+    if @i > 20 {
+      ret @i;
+    } else {
+
+      @i = @i + 3;
+      @out(@i);
+    };
+
+
+    @out(@i);
   };
 
-  ret @a;
+  ret 0;
 };
 
-@a : int = 23;
-@a = @test(@a);
-@out(@a);
-
+@i : int = @test(); @out(@i);

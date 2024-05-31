@@ -188,11 +188,12 @@ void CodeGenContext::setTargets() {
 }
 
 // Helpers
+//Returns either alloc or global var
 llvm::Value *CodeGenContext::checkId(std::string &id) {
 
     auto localCheck = checkLocal(id, blocks.top());
 
-    if (localCheck->allocaSpace) {
+    if (localCheck && localCheck->allocaSpace) {
         return localCheck->allocaSpace;
     }
 
@@ -1010,6 +1011,7 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     //This is basically what produces the loop, as long as this condition evaluates to false, else we'll create a goto
     //back to the loop label
     context.Builder->CreateCondBr(endCond, loopBB, loopEndBB);
+    context.loop_start_bb = loopBB;
     context.next_jumpable_bb = loopEndBB;
 
     //context.popBlock(); //FIXME: THIS CAUSES AN EXCEPTION & POTENTIALLY AN INFINITE LOOP(SOMEHOW)
@@ -1025,13 +1027,13 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     Value *last = nullptr;
     for (auto stmt: loopBlock->statements) {
         last = stmt->codeGen(context);
+        if (last && (llvm::dyn_cast<llvm::ReturnInst>(last) || llvm::dyn_cast<llvm::BranchInst>(last))) {
+            break;
+        }
     }
 
-    if (last && llvm::dyn_cast<llvm::BranchInst>(last)) {
-        break_loop = true;
-    };
 
-    if (!break_loop) {
+    if (!context.exit_loop) {
 
 
         //Emit step val
@@ -1063,7 +1065,10 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     context.popBlock();//pop loop block
     context.blocks.top()->blockWrapper = loopEndBB;
 
-    context.next_jumpable_bb = {};//reset jumpable bb
+    context.next_jumpable_bb.reset();//reset jumpable bb
+    context.loop_start_bb.reset();   //reset jumpable bb
+    context.exit_loop = false;
+
     context.Builder->SetInsertPoint(loopEndBB);
 
 
@@ -1086,10 +1091,24 @@ llvm::Value *NBreakStatement::codeGen(CodeGenContext &context) {
     //where it is safe to jump to while code-generating a block in a loop. The programmer has to be responsible of assigning this
     //jumpable block in the crossroads of a conditional br(see NForstmt)
     if (context.next_jumpable_bb.has_value()) {
+
+        context.exit_loop = true;
         return context.Builder->CreateBr(context.next_jumpable_bb.value());
     }
 
     std::string err = "Next jumpable block is not accessible or Break statement is not within a loop";
+    LogErrorV(err.c_str());
+    throw std::runtime_error(err);
+}
+
+llvm::Value *NContinueStatement::codeGen(CodeGenContext &context) {
+    std::cout << "Generating code for continue statement" << std::endl;
+
+    if (context.loop_start_bb.has_value()) {
+        return context.Builder->CreateBr(context.next_jumpable_bb.value());
+    }
+
+    std::string err = "Next jumpable block is not accessible or Continue statement is not within a loop";
     LogErrorV(err.c_str());
     throw std::runtime_error(err);
 }
