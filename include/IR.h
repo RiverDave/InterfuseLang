@@ -123,6 +123,7 @@ public:
     std::unique_ptr<llvm::PassInstrumentationCallbacks> ThePIC;
     std::unique_ptr<llvm::StandardInstrumentations> TheSI;
     llvm::ExitOnError ExitOnErr;
+
     //Loop exit stuff(purely experimental)
     std::optional<llvm::BasicBlock*> next_jumpable_bb;
 
@@ -133,7 +134,7 @@ public:
     void setTargets();
     llvm::GenericValue runCode();
 
-    llvm::AllocaInst* checkLocal(std::string &id,
+    fuseData::varData* checkLocal(std::string &id,
                                  std::shared_ptr<CodeGenBlock> block);
 
     std::vector<std::pair<std::string, fuseData::varData>> getOuterVars();

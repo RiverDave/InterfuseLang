@@ -192,15 +192,14 @@ llvm::Value *CodeGenContext::checkId(std::string &id) {
 
     auto localCheck = checkLocal(id, blocks.top());
 
-    if (localCheck) {
-        return localCheck;
+    if (localCheck->allocaSpace) {
+        return localCheck->allocaSpace;
     }
 
-    auto globalCheck = globals.find(id);
+    GlobalVariable *globalCheck = TheModule->getNamedGlobal(id);
 
-    if (globalCheck != globals.end()) {
-        GlobalVariable *global = TheModule->getNamedGlobal(id);
-        return global;
+    if (globalCheck) {
+        return globalCheck;
     }
 
     return nullptr;
@@ -211,13 +210,12 @@ llvm::Value *LogErrorV(const char *Str) {
     return nullptr;
 }
 
-// TODO: Test this
-llvm::AllocaInst *CodeGenContext::checkLocal(std::string &id,
-                                             std::shared_ptr<CodeGenBlock> parent_block) {
+fuseData::varData *CodeGenContext::checkLocal(std::string &id,
+                                              std::shared_ptr<CodeGenBlock> parent_block) {
 
     auto it = parent_block->locals.find(id);
     if (it != parent_block->locals.end()) {
-        return it->second.allocaSpace;// Variable found, return stack allocation
+        return &it->second;// Variable found, return stack allocation
     }
 
     // Recursively check in parent block
@@ -323,14 +321,12 @@ llvm::Value *NExpressionStatement::codeGen(CodeGenContext &context) {
 
 // Variable expression
 llvm::Value *NIdentifier::codeGen(CodeGenContext &context) {
-    AllocaInst *V = context.checkLocal(this->name, context.blocks.top());
+    auto id = context.checkLocal(this->name, context.blocks.top());
 
     //Check the current scope, else check for the global variables
-    if (V) {
+    if (id && id->allocaSpace) {
         // Load variable from the stack
-        //FIXME: WHEN ALLOCATING A LOOP VAR INSIDE A FUNCTION, ITS TYPE IS NOT INT FOR SOME REASON
-        auto v = V->getAllocatedType();
-        return context.Builder->CreateLoad(V->getAllocatedType(), V, name.c_str());
+        return context.Builder->CreateLoad(id->allocaSpace->getAllocatedType(), id->allocaSpace, name.c_str());
     }
 
     auto global = context.globals.find(this->name);
@@ -428,7 +424,6 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
         default:
             LogErrorV("Invalid binary op");
     }
-
     return nullptr;
 }
 
@@ -534,7 +529,6 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
 llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
     Value *value = rhs.codeGen(context);
 
-
     if (value == nullptr) {
         return nullptr;
     }
@@ -545,14 +539,15 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
     }
 
     // check variable existance
-    auto *alloc = context.checkLocal(lhs.name, context.blocks.top());
-    auto global = context.globals.find(this->lhs.name);
+    auto *localData = context.checkLocal(lhs.name, context.blocks.top());
 
-    if (alloc) {
+    if (localData) {
 
-        context.blocks.top()->locals[lhs.name].allocaVal = value;
-        return context.Builder->CreateStore(value, alloc);
+        localData->allocaVal = value;
+        return context.Builder->CreateStore(value, localData->allocaSpace);
     }
+
+    auto global = context.globals.find(this->lhs.name);
 
     if (global != context.globals.end()) {
         context.globals[lhs.name].val = value;
@@ -654,7 +649,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         // the last block does not necessarily need contain a return statement
         // if there's a return statement on both if else blocks. this is very
         // specific but is a thing to consider.
-        for (auto &I: fn->back()) {// -> check last emmited block from function
+        for (auto &I: *context.blocks.top()->blockWrapper) {// -> check last emmited block from function
             if (llvm::isa<llvm::ReturnInst>(&I)) {
                 hasReturnInst = true;
                 break;
@@ -901,6 +896,7 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
     if (earlyReturn) {
 
         context.popBlock();
+        context.blocks.top()->blockWrapper = mergebb;
         return ifval;
     }
 
@@ -1007,8 +1003,6 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     }
 
 
-    //Keep track of old value stored(in case of shadowing, this is not being used for now...)
-
     //Emit end condition
     Value *endCond = this->condition->codeGen(context);
 
@@ -1033,7 +1027,7 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
         last = stmt->codeGen(context);
     }
 
-    if (llvm::dyn_cast<llvm::BranchInst>(last)) {
+    if (last && llvm::dyn_cast<llvm::BranchInst>(last)) {
         break_loop = true;
     };
 
@@ -1095,7 +1089,7 @@ llvm::Value *NBreakStatement::codeGen(CodeGenContext &context) {
         return context.Builder->CreateBr(context.next_jumpable_bb.value());
     }
 
-    std::string err = "Next jumpable block is not accessible!";
+    std::string err = "Next jumpable block is not accessible or Break statement is not within a loop";
     LogErrorV(err.c_str());
     throw std::runtime_error(err);
 }

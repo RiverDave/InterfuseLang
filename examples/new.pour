@@ -1,33 +1,13 @@
-```
 fn @test (@a : int) -> int  {
 
-  if @a <= 10 {
-    ret @a;
+  for @a in @a < 100 : @a + 1 {
+    @out(@a);
   };
 
-  ret 0;
+  ret @a;
 };
 
-@val : int = @test(2);
-@out(@val);
-```
-
-# Loop stuff
-
-fn @my_fn() -> void {
-
-    for @i in @i < 100 : @i + 1 {
-
-      @out(@i);
-
-      if @i > 20  {
-        break;
-      };
-    };
-
-};
-
-@my_fn();
-
-
+@a : int = 23;
+@a = @test(@a);
+@out(@a);
 

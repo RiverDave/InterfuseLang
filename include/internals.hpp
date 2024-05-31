@@ -36,6 +36,27 @@ llvm::Function *createCPrint(CodeGenContext &context) {
     return func;
 }
 
+llvm::Function* createCPuts(CodeGenContext &context) {
+    llvm::Type *int8Type = llvm::IntegerType::get(*context.TheContext, 8);
+    PointerType *pointerToI8 = llvm::PointerType::get(int8Type, 0);
+
+    std::vector<llvm::Type *> puts_arg_types;
+    puts_arg_types.push_back(pointerToI8);//char*
+
+    llvm::FunctionType *puts_type =
+            llvm::FunctionType::get(
+                    llvm::Type::getInt32Ty(*context.TheContext), puts_arg_types, true);
+
+    llvm::Function *func = llvm::Function::Create(
+            puts_type, llvm::Function::ExternalLinkage,
+            llvm::Twine("puts"), //Reference to the std puts
+            *context.TheModule);
+    func->setCallingConv(llvm::CallingConv::C);
+
+    assert(func);
+    return func;
+}
+
 void createEchoFunction(CodeGenContext &context, llvm::Function *printfFn) {
     std::vector<llvm::Type *> out_arg_types;
     out_arg_types.push_back(llvm::Type::getInt64Ty(*context.TheContext));
