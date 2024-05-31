@@ -96,13 +96,13 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
     if (srcRoot.codeGen(*this)) {
 
         //Emit return instance to main function
-        ReturnInst::Create(*TheContext, &globalFn->back());
+        ReturnInst::Create(*TheContext, blocks.top()->blockWrapper);
 
         //Verify module before transfering ownership to JIT
         std::string moduleStr;
         llvm::raw_string_ostream errorStream(moduleStr);
 
-        assert(blocks.size() == 1); //Important!!
+        assert(blocks.size() == 1);//Important!!
         verifyFunction(*globalFn);
 
         TheModule->print(llvm::errs(), nullptr);
@@ -212,8 +212,8 @@ llvm::Value *LogErrorV(const char *Str) {
 }
 
 // TODO: Test this
-llvm::AllocaInst* CodeGenContext::checkLocal(std::string &id,
-                           std::shared_ptr<CodeGenBlock> parent_block) {
+llvm::AllocaInst *CodeGenContext::checkLocal(std::string &id,
+                                             std::shared_ptr<CodeGenBlock> parent_block) {
 
     auto it = parent_block->locals.find(id);
     if (it != parent_block->locals.end()) {
@@ -344,7 +344,7 @@ llvm::Value *NIdentifier::codeGen(CodeGenContext &context) {
 
     std::string err = "Variable not found! " + this->name;
     LogErrorV(err.c_str());
-     throw std::runtime_error(err);
+    throw std::runtime_error(err);
     return nullptr;
 }
 
@@ -407,10 +407,10 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
             // std::cout << "Creating greater than :" << std::endl;
             return context.Builder->CreateICmpSGT(lhs.codeGen(context),
                                                   rhs.codeGen(context), "tempgt");
-        case OPERATOR_LESS_THAN:{
+        case OPERATOR_LESS_THAN: {
 
-            Value* left = this->lhs.codeGen(context);
-            Value* right =  this->rhs.codeGen(context);
+            Value *left = this->lhs.codeGen(context);
+            Value *right = this->rhs.codeGen(context);
             return context.Builder->CreateICmpSLT(left, right, "templ");
         }
             // std::cout << "Creating less than :" << std::endl;
@@ -522,14 +522,13 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
 
     // assignedVal->print(llvm::outs(), false);
     // std::cout << std::endl;
-//    auto storedData = alloc ? alloc : gVar;
-   if(alloc) {
+    //    auto storedData = alloc ? alloc : gVar;
+    if (alloc) {
 
-       return context.Builder->CreateStore(assignedVal, alloc);
-   }else{
-       return context.Builder->CreateStore(assignedVal, gVar);
-
-   }
+        return context.Builder->CreateStore(assignedVal, alloc);
+    } else {
+        return context.Builder->CreateStore(assignedVal, gVar);
+    }
 }
 
 llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
@@ -636,18 +635,18 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
 
 
         //NOTE: Experimental for now...
-//        if (context.blocks.top()->blockWrapper != BB) {//Basic block has probably changed
-//            //Top should now be last block emmited from code gen
-//
-//            auto nBlock = context.blocks.top();
-//            //NOTE: THis might lead to errors, considering a function
-//            //can have multiple blocks inserted at its end because of
-//            //if stmts or loops...
-//            while (context.blocks.top()->blockWrapper != &fn->getEntryBlock()) {
-//                context.popBlock();
-//            }
-//            context.blocks.top() = nBlock;// Copy last emitted block into the top
-//        }
+        //        if (context.blocks.top()->blockWrapper != BB) {//Basic block has probably changed
+        //            //Top should now be last block emmited from code gen
+        //
+        //            auto nBlock = context.blocks.top();
+        //            //NOTE: THis might lead to errors, considering a function
+        //            //can have multiple blocks inserted at its end because of
+        //            //if stmts or loops...
+        //            while (context.blocks.top()->blockWrapper != &fn->getEntryBlock()) {
+        //                context.popBlock();
+        //            }
+        //            context.blocks.top() = nBlock;// Copy last emitted block into the top
+        //        }
 
 
         bool hasReturnInst = false;
@@ -655,7 +654,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         // the last block does not necessarily need contain a return statement
         // if there's a return statement on both if else blocks. this is very
         // specific but is a thing to consider.
-        for (auto &I : fn->back()) { // -> check last emmited block from function
+        for (auto &I: fn->back()) {// -> check last emmited block from function
             if (llvm::isa<llvm::ReturnInst>(&I)) {
                 hasReturnInst = true;
                 break;
@@ -894,6 +893,8 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
 
     if (ifval->getType()->isVoidTy() || (elseval && elseval->getType()->isVoidTy()) /* || ifval->getType() != elseval->getType() */) {
         //Return void
+        context.popBlock();
+        context.blocks.top()->blockWrapper = mergebb;
         return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*context.TheContext));
     }
 
@@ -971,7 +972,7 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
 
     } else {
 
-      //Assert variable as an integer:
+        //Assert variable as an integer:
 
         allocInst = llvm::dyn_cast<llvm::AllocaInst>(initVar);// TODO: REFORMAT THIS WHOLE THING
         if (isAlloca) {
@@ -1015,6 +1016,7 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     //This is basically what produces the loop, as long as this condition evaluates to false, else we'll create a goto
     //back to the loop label
     context.Builder->CreateCondBr(endCond, loopBB, loopEndBB);
+    context.next_jumpable_bb = loopEndBB;
 
     //context.popBlock(); //FIXME: THIS CAUSES AN EXCEPTION & POTENTIALLY AN INFINITE LOOP(SOMEHOW)
 
@@ -1024,41 +1026,51 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     assert(context.blocks.top()->parent);
 
     //emit loop body
-    if (!this->loopBlock->codeGen(context)) {
-        //        return nullptr;
+    bool break_loop = false;
+
+    Value *last = nullptr;
+    for (auto stmt: loopBlock->statements) {
+        last = stmt->codeGen(context);
     }
 
-    //Emit step val
-    Value *stepVal = nullptr;
-    if (this->iteration) {
-        stepVal = iteration->codeGen(context);
-        if (!stepVal || stepVal->getType()->isVoidTy()) {
-            return nullptr;
+    if (llvm::dyn_cast<llvm::BranchInst>(last)) {
+        break_loop = true;
+    };
+
+    if (!break_loop) {
+
+
+        //Emit step val
+        Value *stepVal = nullptr;
+        if (this->iteration) {
+            stepVal = iteration->codeGen(context);
+            if (!stepVal || stepVal->getType()->isVoidTy()) {
+                return nullptr;
+            }
+            stepVal->print(llvm::errs());
         }
-        stepVal->print(llvm::errs());
-    }
 
-    if (isAlloca) {
-//         auto curVar = context.Builder->CreateLoad(allocInst->getAllocatedType(), allocInst, initialization->name);
-        //Store step expression into current variabl
-        Value *next_val = context.Builder->CreateStore(stepVal, allocInst);
-        next_val->print(llvm::errs());
-        assert(next_val);
+        if (isAlloca) {
+            //Store step expression into current variabl
+            Value *next_val = context.Builder->CreateStore(stepVal, allocInst);
+            next_val->print(llvm::errs());
+            assert(next_val);
 
-    } else {
-        Value *next_val = context.Builder->CreateStore(stepVal, gVar);
-        next_val->print(llvm::errs());
-        assert(next_val);
+        } else {
+            Value *next_val = context.Builder->CreateStore(stepVal, gVar);
+            next_val->print(llvm::errs());
+            assert(next_val);
+        }
+        context.Builder->CreateBr(stepBB);
     }
-    context.Builder->CreateBr(stepBB);
 
     //This pops ensure that anything allocated in these blocks is not accessible outside of the loop scope
-    context.popBlock(); //pop step block
-    context.popBlock(); //pop loop block
+    context.popBlock();//pop step block
+    context.popBlock();//pop loop block
+    context.blocks.top()->blockWrapper = loopEndBB;
 
+    context.next_jumpable_bb = {};//reset jumpable bb
     context.Builder->SetInsertPoint(loopEndBB);
-//    context.pushBlock(loopEndBB);
-//    assert(context.blocks.top()->parent);
 
 
     return Constant::getNullValue(Type::getInt64Ty(*context.TheContext));
@@ -1069,4 +1081,21 @@ llvm::Value *NString::codeGen(CodeGenContext &context) { return nullptr; }
 
 llvm::Value *NElseStatement::codeGen(CodeGenContext &context) {
     return nullptr;
+}
+
+llvm::Value *NBreakStatement::codeGen(CodeGenContext &context) {
+    std::cout << "Generating code for break statement" << std::endl;
+
+    //This solution particularly bad but Ill be using it for now...
+    //Instead of trying to cast each node of the ast to check whether its a break statement(It failed for some reason)
+    //in a loop and create the br instruction directly there, I opted for this approach, next jumpabable_bb is the basic block
+    //where it is safe to jump to while code-generating a block in a loop. The programmer has to be responsible of assigning this
+    //jumpable block in the crossroads of a conditional br(see NForstmt)
+    if (context.next_jumpable_bb.has_value()) {
+        return context.Builder->CreateBr(context.next_jumpable_bb.value());
+    }
+
+    std::string err = "Next jumpable block is not accessible!";
+    LogErrorV(err.c_str());
+    throw std::runtime_error(err);
 }

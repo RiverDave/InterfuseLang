@@ -24,7 +24,6 @@
   NStatement *stmt;
   NIdentifier *id;
   NVariableDeclaration *var_decl;
-	//std::vector<NVariableDeclaration*> *varvec;
   VariableList* varvec;
   std::vector<NExpression*> *exprs;
 
@@ -64,12 +63,12 @@
 %token<token> TKPAROPEN TKPARCLOSE
 %token<token> TKFUNCTION_KEY
 %token<token> TKIF TKELSE TKELSEIF 
-%token<token> TKFOR TKIN
+%token<token> TKFOR TKIN TKBREAK
 
 %type<id> id
 %type<varvec> fn_args
 %type<exprs> fn_call_args
-%type<stmt> stmt var_decl fn_decl if_stmt for_stmt
+%type<stmt> stmt var_decl fn_decl if_stmt for_stmt break_stmt
 %type<else_stmt> else_stmt
 
 //%type<for_stmt> for_stmt
@@ -168,6 +167,14 @@ stmt:
     {
         //$$ = $<for_stmt>1;
         std::cout << "Parsed for_stmt" << std::endl;
+    } | 
+    break_stmt
+    {
+        $$ = new NBreakStatement();
+        std::cout << $$->getStatementType() << std::endl;
+        std::cout << "Parsed break_stmt" << std::endl;
+
+
     }
     ;
 
@@ -183,8 +190,6 @@ var_decl:
 
     TKIDENTIFIER TKCOLON TKDATATYPE TKASSIGNMENT expr
     {
-        //NOTE: This ast assumption is correct
-        //handle data type as well inside ast
         NIdentifier* type = new NIdentifier($3->getValue().c_str());
         NIdentifier* id = new NIdentifier($1->getValue().c_str());
 
@@ -265,7 +270,7 @@ for_stmt:
 
 //TODO: id wont be a var decl in this case but rather a local defined within the loop, in the ast 
 //we should check if the id is defined within the current scope
-//inclusive range: for @i in 1 := 10 {...
+//inclusive range: for @i in @i < 10 := @i++ {...
 
 //Non inclusive range: for @i in @i < 10 : @i = @i + 1 {...
     TKFOR id TKIN expr TKCOLON expr block
@@ -310,6 +315,10 @@ else_stmt:
     {
         $$ = nullptr;
     }
+    ;
+
+break_stmt:
+    TKBREAK
     ;
 
 expr:

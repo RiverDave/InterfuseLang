@@ -123,6 +123,8 @@ public:
     std::unique_ptr<llvm::PassInstrumentationCallbacks> ThePIC;
     std::unique_ptr<llvm::StandardInstrumentations> TheSI;
     llvm::ExitOnError ExitOnErr;
+    //Loop exit stuff(purely experimental)
+    std::optional<llvm::BasicBlock*> next_jumpable_bb;
 
     llvm::Function *globalFn;// Entry point function aka 'Main'
 
