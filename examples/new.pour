@@ -1,3 +1,4 @@
+```
 fn @test () -> int  {
 
   for @i in @i < 100 : @i + 1  {
@@ -16,4 +17,12 @@ fn @test () -> int  {
   ret 0;
 };
 
-@i : int = @test(); @out(@i);
+@i : int = @test(); 
+@out(@i);
+```
+
+@a : int = 20;
+
+if @a % 2 == 0 {
+  @out(100);
+};

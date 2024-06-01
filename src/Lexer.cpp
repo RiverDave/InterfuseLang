@@ -182,6 +182,10 @@ extern "C" int yylex() {
             yylval.token = new Token(token);
             return TKCONT;
 
+        case OPERATOR_MODULO:
+            yylval.token = new Token(token);
+            return TKMOD;
+
         // case COMMENT_SINGLE_LINE:
         //   yylval.token = new Token(token);
         //   return TKSINGLECOMMENT;
@@ -201,7 +205,7 @@ extern "C" int yylex() {
 // std::unordered_map<char, CHAR_TYPE> Lexer::subTokenClassifier;
 
 // utils
-inline bool isWhiteSpace(const char ch) {
+inline bool isWhiteSpaPERAce(const char ch) {
     return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
 }
 
@@ -454,6 +458,10 @@ Token Lexer::get_next_token() {
         case '/':
             ++_position;
             return Token(OPERATOR_DIVIDE, "/");
+
+        case '%':
+            ++_position;
+            return Token(OPERATOR_MODULO, "%");
 
         case '#': {
 

@@ -59,7 +59,7 @@ CodeGenContext::CodeGenContext() : blocks() {
     // Add transform passes.
     // Do simple "peephole" optimizations and bit-twiddling optzns.
     TheFPM->add(llvm::createInstructionCombiningPass());
-    // TheFPM->addPass(InstCombinePass());
+
     // // Reassociate expressions.
     TheFPM->add(llvm::createReassociatePass());
     // // Eliminate Common SubExpressions.
@@ -372,55 +372,90 @@ llvm::Type *NIdentifier::getType(CodeGenContext &context) const {
 llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
     TOKEN_TYPE toktype = op.getType();
 
+    Value *left = lhs.codeGen(context);
+    Value *right = rhs.codeGen(context);
+
+    if (left->getType()->isDoubleTy() && !right->getType()->isDoubleTy()) {
+        left = context.Builder->CreateFPToSI(left,
+                                             llvm::Type::getInt64Ty(*context.TheContext), "conv");
+    } else if (right->getType()->isDoubleTy() && !left->getType()->isDoubleTy()) {
+
+        left = context.Builder->CreateFPToSI(right,
+                                             llvm::Type::getInt64Ty(*context.TheContext), "conv");
+    }
+
+
+    if (right->getType()->isIntegerTy(1)) {// Check if right is a boolean
+        right = context.Builder->CreateZExt(right, llvm::Type::getInt64Ty(*context.TheContext), "booltoint");
+    }
+
+    if (left->getType()->isIntegerTy(1)) {// Check if left is a boolean
+        left = context.Builder->CreateZExt(left, llvm::Type::getInt64Ty(*context.TheContext), "booltoint");
+    }
     switch (toktype) {
+
         case OPERATOR_PLUS:
-            // std::cout << "Creating addition :" << std::endl;
-            return context.Builder->CreateAdd(lhs.codeGen(context),
-                                              rhs.codeGen(context), "tempadd");
+            return context.Builder->CreateAdd(left,
+                                              right, "tempadd");
         case OPERATOR_MINUS:
             // std::cout << "Creating subtraction :" << std::endl;
-            return context.Builder->CreateSub(lhs.codeGen(context),
-                                              rhs.codeGen(context), "tempsub");
+            return context.Builder->CreateSub(left,
+                                              right, "tempsub");
 
         case OPERATOR_DIVIDE:
             // std::cout << "Creating division :" << std::endl;
-            return context.Builder->CreateSDiv(lhs.codeGen(context),
-                                               rhs.codeGen(context), "tempdiv");
+            return context.Builder->CreateSDiv(left,
+                                               right, "tempdiv");
 
         case OPERATOR_MULTIPLY:
             // std::cout << "Creating multiplication :" << std::endl;
-            return context.Builder->CreateMul(lhs.codeGen(context),
-                                              rhs.codeGen(context), "tempmul");
-            //TODO: IMPLEMENT THIS FOR FLOATS?
+            return context.Builder->CreateMul(left,
+                                              right, "tempmul");
+
         case OPERATOR_NOT_EQUALS:
-            // std::cout << "Creating not equals :" << std::endl;
-            return context.Builder->CreateICmpNE(lhs.codeGen(context),
-                                                 rhs.codeGen(context), "tempne");
+            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
+                return context.Builder->CreateFCmpONE(left,
+                                                      right, "tempne");
+
+            return context.Builder->CreateICmpNE(left,
+                                                 right, "tempne");
         case OPERATOR_EQUALS:
-            // std::cout << "Creating equals :" << std::endl;
-            return context.Builder->CreateICmpEQ(lhs.codeGen(context),
-                                                 rhs.codeGen(context), "tempeq");
+            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
+                return context.Builder->CreateFCmpOEQ(left,
+                                                      right, "tempne");
+            return context.Builder->CreateICmpEQ(left,
+                                                 right, "tempeq");
         case OPERATOR_GREATER_THAN:
-            // std::cout << "Creating greater than :" << std::endl;
-            return context.Builder->CreateICmpSGT(lhs.codeGen(context),
-                                                  rhs.codeGen(context), "tempgt");
-        case OPERATOR_LESS_THAN: {
+            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
+                return context.Builder->CreateFCmpOGT(left,
+                                                      right, "tempne");
 
-            Value *left = this->lhs.codeGen(context);
-            Value *right = this->rhs.codeGen(context);
+            return context.Builder->CreateICmpSGT(left,
+                                                  right, "tempgt");
+
+        case OPERATOR_LESS_THAN:
+            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
+                return context.Builder->CreateFCmpOLT(left,
+                                                      right, "tempne");
+
             return context.Builder->CreateICmpSLT(left, right, "templ");
-        }
-            // std::cout << "Creating less than :" << std::endl;
-
         case OPERATOR_GREATER_THAN_EQUALS:
-            // std::cout << "Creating greater than equals :" << std::endl;
-            return context.Builder->CreateICmpSGE(lhs.codeGen(context),
-                                                  rhs.codeGen(context), "tempgte");
-        case OPERATOR_LESS_THAN_EQUALS:
-            // std::cout << "Creating less than equals :" << std::endl;
-            return context.Builder->CreateICmpSLE(lhs.codeGen(context),
-                                                  rhs.codeGen(context), "temple");
+            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
+                return context.Builder->CreateFCmpOGE(left,
+                                                      right, "tempne");
 
+            return context.Builder->CreateICmpSGE(left,
+                                                  right, "tempgte");
+        case OPERATOR_LESS_THAN_EQUALS:
+            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
+                return context.Builder->CreateFCmpOLE(left,
+                                                      right, "tempne");
+            return context.Builder->CreateICmpSLE(left,
+                                                  right, "temple");
+
+        case OPERATOR_MODULO:
+            return context.Builder->CreateSRem(left,
+                                               right, "tempmod");
 
         default:
             LogErrorV("Invalid binary op");

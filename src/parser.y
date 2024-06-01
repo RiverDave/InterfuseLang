@@ -47,7 +47,7 @@
 //%token <token> KEYWORD_LOOP_FOR KEYWORD_LOOP_DO KEYWORD_LOOP_WHILE 
 //%token <token>  KEYWORD_PROCEDURE KEYWORD_PROVIDE
 %token<token> TKNUMBER TKDOUBLE
-%token<token> TKPLUS TKMINUS TKMULT TKDIV
+%token<token> TKPLUS TKMINUS TKMULT TKDIV TKMOD
 %token<token> TKRETURN 
 %token<token> TKCOMMA TKDOT TKARROW TKCOLON TKRANGE_INCLUSIVE 
 %token<token> TKLINEBREAK  //statement delimiter
@@ -79,7 +79,7 @@
 
 
 %left TKPLUS TKMINUS
-%right TKMULT TKDIV
+%right TKMULT TKDIV TKMOD
 %left TKLESS TKGREATER TKLESS_EQUAL TKGREATER_EQUAL TKEQUAL TKNOT_EQUAL
 
 %start program
@@ -384,6 +384,13 @@ numeric
     expr TKMINUS expr
     {
 
+      $$ = new NBinaryOperator(*$1, *$2, *$3);
+      //delete $2;
+
+    } |
+
+    expr TKMOD expr
+    {
       $$ = new NBinaryOperator(*$1, *$2, *$3);
       //delete $2;
 
