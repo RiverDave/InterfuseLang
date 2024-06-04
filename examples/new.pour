@@ -1,28 +1,8 @@
-```
-fn @test () -> int  {
-
-  for @i in @i < 100 : @i + 1  {
-    if @i > 20 {
-      ret @i;
-    } else {
-
-      @i = @i + 3;
-      @out(@i);
-    };
-
-
-    @out(@i);
-  };
-
-  ret 0;
+fn @second() -> int {
+  ret 25 + 100;
 };
 
-@i : int = @test(); 
-@out(@i);
-```
+@a : int = @second();
 
-@a : int = 20;
-
-if @a % 2 == 0 {
-  @out(100);
-};
+@printf(@a);
+@puts("Elton John");

@@ -176,14 +176,12 @@ public:
 };
 
 class NString : public NExpression {
-    //   std::string name;
 
     // It would be better to allocate memory on the heap for this member
     // sm_ptr or shared?
+  public:
     std::string value;
-
     explicit NString(const std::string &value) : value(value) {}
-
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 

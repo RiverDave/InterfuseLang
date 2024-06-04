@@ -30,7 +30,7 @@ extern "C" int yylex() {
         token = lexerInstance->get_next_token();
     }
 
-    // std::cout << token << std::endl;
+    std::cout << token << std::endl;
 
     // Token types defined in bison file
     switch (token.getType()) {
@@ -185,6 +185,10 @@ extern "C" int yylex() {
         case OPERATOR_MODULO:
             yylval.token = new Token(token);
             return TKMOD;
+
+        case STRING:
+            yylval.token = new Token(token);
+            return TKSTRING;
 
         // case COMMENT_SINGLE_LINE:
         //   yylval.token = new Token(token);
@@ -546,23 +550,24 @@ Token Lexer::get_next_token() {
         }
         case '\'':
         case '"': {
-            auto old_pos = _position;
+
 
             // Moves iterator to avoid finding the current char
 
             move_itr_bounds(input, _position);
+            auto old_pos = _position;
 
             // find closing pair
-            auto closing_match = std::find(_position, input.end(), *old_pos);
+            auto closing_match = std::find(_position, input.end(), '"');
 
-            if (*old_pos == *closing_match) {
+            if (  *closing_match == '"') {
                 // I need to move closing_match since it will set the char again in a
                 // quote, causing this function to be called more than once!
 
                 move_itr_bounds(input, closing_match);
-                _position = closing_match;
+                _position = closing_match; // -1 so we return the character, not the quote
 
-                return Token(STRING, std::string{old_pos, _position});
+                return Token(STRING, std::string{old_pos, _position - 1});
             }
 
             ++_position;

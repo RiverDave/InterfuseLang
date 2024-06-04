@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <iterator>
 #include <llvm-c/Target.h>
 #include <llvm-c/TargetMachine.h>
@@ -351,7 +352,8 @@ llvm::Type *NIdentifier::getType(CodeGenContext &context) const {
     std::unordered_map<std::string, llvm::Type *> typeMap{
             {"int", llvm::Type::getInt64Ty(*context.TheContext)},
             {"double", llvm::Type::getDoubleTy(*context.TheContext)},
-            {"float", llvm::Type::getFloatTy(*context.TheContext)},
+            {"str", llvm::PointerType::getInt8Ty(*context.TheContext)},
+            {"float", llvm::Type::getFloatTy(*context.TheContext)},//Not supported at all
             {"void", llvm::Type::getVoidTy(*context.TheContext)}
             //{"bool", llvm::Type::getInt64Ty(*context.TheContext)},
             //{"int", llvm::Type::getInt64Ty(*context.TheContext)},
@@ -464,7 +466,6 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
 }
 
 llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
-    // Function *parentFunction = context.Builder->GetInsertBlock()->getParent();
 
     Function *parentFunction = context.blocks.top()->blockWrapper->getParent();
 
@@ -776,6 +777,13 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
     Function *fn = context.TheModule->getFunction(id.name);
 
     if (fn && find != context.globals.end()) {
+
+      //Really hard coded for now, but will improve later(to support chained strings etc...)
+        if (this->arguments.size() == 1 && fn->getName() == "printf") {
+            llvm::CallInst* call = createOutCall(context, this->arguments[0]->codeGen(context));
+            return call;
+        }
+
         std::vector<Value *> args;
         if (arguments.size() == fn->arg_size()) {
             unsigned i = 0;
@@ -783,19 +791,14 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
                 Value *V = arg->codeGen(context);
                 // size_t vals = find->second.fnType->getNumParams();
                 Type *paramType = fn->args().begin()[i].getType();
-                assert(V->getType() == paramType && "Argument type mismatch ");
+
+
+                assert(V->getType() == paramType && "Argument type mismatch");
                 Value *bitcastedArg =
                         context.Builder->CreateBitCast(V, paramType);// thanks bolt!
                 args.push_back(bitcastedArg);
                 i++;
             }
-
-            //            std::vector<std::pair<std::string, varData>> outerVars =
-            //                    context.getOuterVars();
-            //
-            //            for (const auto &var: outerVars) {
-            //                args.push_back(var.second.allocaVal);
-            //            }
 
         } else {
             std::string err =
@@ -804,10 +807,6 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
             throw std::runtime_error(err);
         }
 
-        // auto valCall = context.Builder->CreateCall(
-        //     ffind, args);
-
-        // assert(find->first == ffind->getName());
 
         auto isVoid = fn->getReturnType()->isVoidTy();
 
@@ -1110,7 +1109,40 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     return Constant::getNullValue(Type::getInt64Ty(*context.TheContext));
 }
 
-llvm::Value *NString::codeGen(CodeGenContext &context) { return nullptr; }
+llvm::Value *NString::codeGen(CodeGenContext &context) {
+    //0. Defs
+    auto str = this->value;
+    auto charType = llvm::IntegerType::get(*context.TheContext, 8);
+
+
+    //1. Initialize chars vector
+    std::vector<llvm::Constant *> chars(str.length());
+    for (unsigned int i = 0; i < str.size(); i++) {
+        chars[i] = llvm::ConstantInt::get(charType, str[i]);
+    }
+
+    //1b. add a null terminator too
+    chars.push_back(llvm::ConstantInt::get(charType, 0));
+
+    //2. Initialize the string from the characters
+    auto stringType = llvm::ArrayType::get(charType, chars.size());
+
+    //3. Create the declaration statement
+    auto globalDeclaration = new llvm::GlobalVariable(*context.TheModule, stringType, true, llvm::GlobalValue::PrivateLinkage, llvm::ConstantArray::get(stringType, chars), ".str");
+    globalDeclaration->setInitializer(llvm::ConstantArray::get(stringType, chars));
+    globalDeclaration->setConstant(true);
+    globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
+    globalDeclaration->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+
+
+    //4. Return a cast to an i8*
+    return llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
+
+
+    // auto strval = llvm::ConstantDataArray::getString(*context.TheContext, this->value, true);
+    //
+    // return  strval;
+}
 
 
 llvm::Value *NElseStatement::codeGen(CodeGenContext &context) {

@@ -34,7 +34,6 @@
   //for loop stmt
   //NStatement *for_stmt;
 
-  //std::string *str;
   NBlock *stmts;
   Token* token;
 
@@ -47,6 +46,7 @@
 //%token <token> KEYWORD_LOOP_FOR KEYWORD_LOOP_DO KEYWORD_LOOP_WHILE 
 //%token <token>  KEYWORD_PROCEDURE KEYWORD_PROVIDE
 %token<token> TKNUMBER TKDOUBLE
+%token<token> TKSTRING
 %token<token> TKPLUS TKMINUS TKMULT TKDIV TKMOD
 %token<token> TKRETURN 
 %token<token> TKCOMMA TKDOT TKARROW TKCOLON TKRANGE_INCLUSIVE 
@@ -74,7 +74,7 @@
 //%type<for_stmt> for_stmt
 %type<block> program stmts block
 //%type<var_decls> var_decls //not quite sure bout this
-%type<expr> expr numeric 
+%type<expr> expr numeric string 
 %type<token> comparison negation
 
 
@@ -339,10 +339,9 @@ expr:
 
     id TKPAROPEN fn_call_args TKPARCLOSE
     {
-      //fn call basically
-      $$ =  new NFnCall(*$<id>1, *$3);
-      std::cout << "Parsed args call " << std::endl;
-
+    // fn call basically
+    $$ =  new NFnCall(*$<id>1, *$3);
+    std::cout << "Parsed args call " << std::endl;
 
     } |  
 
@@ -355,9 +354,11 @@ expr:
     //There should be a function that checks if the id is defined within current scope(locals)
 
     } |  
-numeric 
 
-    |
+    numeric | 
+
+    string |
+
     expr TKMULT expr
     {
       $$ = new NBinaryOperator(*$1, *$2, *$3);
@@ -434,25 +435,30 @@ numeric:
     }
     ;
 
-fn_call_args:
-
+string:
+    TKSTRING
     {
+      $$ = new NString($1->getValue());
+      delete $1;
+    }
+    ;
 
-      $$ = new ExpressionList();
-
-    } | 
+fn_call_args:
+    /* empty */
+    {
+        $$ = new ExpressionList();
+        std::cout << "Parsed fn_call_args 1" << std::endl;
+    } |
     expr
     {
-     $$ = new ExpressionList();
-     $$->push_back($1);
-
+        $$ = new ExpressionList();
+        $$->push_back($1);
+        std::cout << "Parsed fn_call_args 2" << $1 << std::endl;
     } |
-    
     fn_call_args TKCOMMA expr
     {
-
-      $1->push_back($3);
-      //std::cout << "Parsed fn_call_args" << std::endl;
+        $1->push_back($3);
+        std::cout << "Parsed fn_call_args 3" << std::endl;
     }
     ;
 
