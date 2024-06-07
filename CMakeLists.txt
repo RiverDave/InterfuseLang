@@ -14,7 +14,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 
 # All headers shall be saved in here
-# set(INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include")
 set(SOURCES
             src/main.cpp
             src/Lexer.cpp
@@ -30,6 +29,14 @@ set(SOURCES
             src/parser.y
 
 )
+
+set(INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+#Path stuff, automation
+get_filename_component(FUSE_RUNNER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/scripts/fuse_runner.sh" ABSOLUTE)
+
+add_definitions(-DFUSE_RUNNER_PATH="${FUSE_RUNNER_PATH}")
+
 
 find_package(BISON REQUIRED)
 BISON_TARGET(MyParser src/parser.y ${CMAKE_CURRENT_BINARY_DIR}/parser.cpp)
@@ -47,11 +54,6 @@ string(STRIP ${llvm_libraries} llvm_libraries)
 
 add_executable(pourer ${SOURCES} ${BISON_MyParser_OUTPUTS})
 target_include_directories(pourer PRIVATE ${INCLUDE_PATH})
-
-# foreach(target ${LLVM_TARGETS_TO_BUILD})
-#   list(APPEND targets "LLVM${target}CodeGen")
-# endforeach()
-
 
 
 # Add compiler flags

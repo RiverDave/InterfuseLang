@@ -8,22 +8,23 @@ extern NBlock *programBlock;
 
 //Path to .fuse file
 const char *_global_file_name;
+const char *_binary_name;
 
 //TODO: flag that outputs not just the result of the program but also the IR generated llvm code.
-bool isVerbose = false;
+static bool _verbose_mode = false;
 
 
 int main(int argc, char **argv) {
 
-    if (argc > 0 && argv[1] == NULL) {
-        std::cerr << "No input file provided" << std::endl;
+    if (argc != 3) {
+        std::cerr << "No input file or binary name provided" << std::endl;
         exit(1);
     } else {
 
-      //Assert that only .fuse files are accepted
+        //verify that only .fuse files are accepted
         auto has_extension = [&](const std::string &filename, const std::string &extension) {
             if (filename.length() >= extension.length()) {
-              //Pass lenghts & content
+                //Pass lenghts & content
                 return (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension));
             }
 
@@ -31,22 +32,26 @@ int main(int argc, char **argv) {
         };
 
 
-        if(!has_extension(argv[1], ".fuse")){
+        if (!has_extension(argv[1], ".fuse")) {
 
             std::cerr << "Invalid file extension in file name " << argv[1] << std::endl;
             exit(1);
         }
         _global_file_name = argv[1];
+        assert(argv[1] && "Missing input file in arguments");
+        _binary_name = argv[2];
+        assert(argv[2] && "Missing binary name in arguments");
     }
 
 
     if (yyparse() == 0) {
         try {
 
-            CodeGenContext context;
+            CodeGenContext context(_verbose_mode, _global_file_name, _binary_name);
             context.setTargets();
             context.emitIR(*programBlock);
-            context.runCode();
+            context.dumpIR();
+
 
         } catch (const std::runtime_error &e) {
             std::cerr << e.what() << std::flush;

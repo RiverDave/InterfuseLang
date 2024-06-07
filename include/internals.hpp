@@ -74,7 +74,6 @@ void generateFunctionsIR(CodeGenContext &context) {
                                                                    llvm::Type::getInt8Ty(*context.TheContext)->getPointerTo(), false));
 }
 
-//FIXME: FIX THS FUNCTION
 void createCoreFunctions(CodeGenContext &context) {
 
 

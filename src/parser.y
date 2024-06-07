@@ -130,43 +130,36 @@ stmt:
     expr
     {
         $$ = new NExpressionStatement(*$1);
-        std::cout << "Parsed exp" << std::endl;
     } |
 
     var_decl
     {
         //$$ = $<var_decl>1;
-        std::cout << "Parsed var_decl" << std::endl;
     } |
 
     TKRETURN expr 
     {
         $$ = new NReturnStatement($<expr>2);
-        std::cout << "Parsed return exp" << std::endl;
     } |
 
     TKRETURN
     {
         $$ = new NReturnStatement();
-        std::cout << "Parsed return stmt" << std::endl;
     } |
 
     fn_decl
     {
         //$$ = $1;
         //$$ = $<fn_decl>1;
-        std::cout << "Parsed fn_decl" << std::endl;
     } | 
     if_stmt
     {
         //$$ = $<if_stmt>1;
-        std::cout << "Parsed if_stmt" << std::endl;
     } |
 
     for_stmt
     {
         //$$ = $<for_stmt>1;
-        std::cout << "Parsed for_stmt" << std::endl;
     } | 
     break_stmt
     {
@@ -177,7 +170,6 @@ stmt:
     continue_stmt
     {
         $$ = new NContinueStatement();
-        std::cout << "Parsed continue stmt" << std::endl;
     }
     ;
 
@@ -185,7 +177,6 @@ id : TKIDENTIFIER
     {
         $$ = new NIdentifier($1->getValue());
         delete $1;
-//        std::cout << "Parsed id" << std::endl;
     }
     ;
 
@@ -280,7 +271,6 @@ for_stmt:
     {
 
         $$ = new NForStatement($2, $4, $6, $7);
-        std::cout << "Init for statememnt" << std::endl;
     }
     ;
 
@@ -289,7 +279,6 @@ if_stmt:
     {
 
         $$ = new NIfStatement($<expr>2, $3);
-        //std::cout << "Parsed if_stmt" << std::endl;
     } |
 
     TKIF expr block else_stmt
@@ -302,7 +291,6 @@ if_stmt:
 else_stmt:
     TKELSE if_stmt
     {
-        std::cout << "Parsed else_if_stmt" << std::endl;
        $$ = $<else_stmt>2; 
        //$$ = $2;
     }
@@ -341,14 +329,12 @@ expr:
     {
     // fn call basically
     $$ =  new NFnCall(*$<id>1, *$3);
-    std::cout << "Parsed args call " << std::endl;
 
     } |  
 
     id
     {
       $$ = $<id>1;
-    std::cout << "Parsed id" << std::endl;
 
     //NOTE: Since this is being parsed as an exp and as well as a variable declaration
     //There should be a function that checks if the id is defined within current scope(locals)
@@ -407,7 +393,6 @@ expr:
     {
       $$ = new NBinaryOperator(*$1, *$2, *$3);
       //delete $2;
-      std::cout << "Parsed comparison" << std::endl;
 
     } |
 
@@ -421,7 +406,6 @@ numeric:
     TKNUMBER
     {
 
-      std::cout << "Generated integer " << std::endl;
       $$ = new NInteger(std::atof($1->getValue().c_str()));
       delete $1;
 
@@ -447,18 +431,15 @@ fn_call_args:
     /* empty */
     {
         $$ = new ExpressionList();
-        std::cout << "Parsed fn_call_args 1" << std::endl;
     } |
     expr
     {
         $$ = new ExpressionList();
         $$->push_back($1);
-        std::cout << "Parsed fn_call_args 2" << $1 << std::endl;
     } |
     fn_call_args TKCOMMA expr
     {
         $1->push_back($3);
-        std::cout << "Parsed fn_call_args 3" << std::endl;
     }
     ;
 

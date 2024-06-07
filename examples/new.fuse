@@ -1,3 +1,14 @@
-@puts("Hello World");
 
-@a : int = -42;
+fn @factorial(@n : int) -> int {
+  if (@n == 0) {
+    ret 1;
+  } else {
+    ret @n * 10;
+  };
+
+  ret 0;
+};
+
+@printf(@factorial(5));
+
+

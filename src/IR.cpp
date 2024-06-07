@@ -1,8 +1,9 @@
-#include "../include/IR.h"
+#include "IR.h"
 #include "../include/internals.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <iterator>
 #include <llvm-c/Target.h>
@@ -17,11 +18,15 @@
 #include <llvm/Target/TargetOptions.h>
 #include <llvm/TargetParser/Triple.h>
 #include <memory>
+#include <system_error>
 #include <unordered_map>
 
 using namespace llvm;
 
-CodeGenContext::CodeGenContext() : blocks() {
+extern const char* _global_file_name;
+
+CodeGenContext::CodeGenContext(bool verboseMode, std::string fname, std::string exec_name) :
+  blocks(), _verbose_mode(verboseMode), dump_file_name(fname), binary_name(exec_name) {
     // Init core llvm
     TheContext = std::make_unique<llvm::LLVMContext>();
     TheModule = std::make_unique<llvm::Module>("Pourer", *TheContext);
@@ -79,14 +84,14 @@ CodeGenContext::CodeGenContext() : blocks() {
 
 // Entry point for code generation
 void CodeGenContext::emitIR(NBlock &srcRoot) {
-    std::cout << "Mixing Pour..." << std::endl;
 
     // Top level block
     std::vector<llvm::Type *> argTypes;
     llvm::FunctionType *ftype = llvm::FunctionType::get(
             Type::getVoidTy(*TheContext), llvm::ArrayRef(argTypes), false);
 
-    globalFn = Function::Create(ftype, llvm::GlobalValue::InternalLinkage, "main",
+    globalFn = Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, "main",//Internal was the default, but it was not finding main in the
+                                                                                  //Linking process for any reason
                                 TheModule.get());
 
     BasicBlock *bblock = BasicBlock::Create(*TheContext, "entry", globalFn, 0);
@@ -103,10 +108,14 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
         std::string moduleStr;
         llvm::raw_string_ostream errorStream(moduleStr);
 
-        assert(blocks.size() == 1);//Important!!
+        assert(blocks.size() == 1);//Important!! to assure all blocks to write have been popped
         verifyFunction(*globalFn);
 
-        TheModule->print(llvm::errs(), nullptr);
+        //Output code if requested
+        if (_verbose_mode) {
+            TheModule->print(llvm::errs(), nullptr);
+        }
+
         if (llvm::verifyModule(*TheModule, &errorStream)) {
             std::cerr << "The module is not valid:\n"
                       << errorStream.str() << std::endl;
@@ -116,6 +125,16 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
         // globalFn->print(llvm::errs());
 
         // Create the ExecutionEngine
+    }
+    popBlock();
+}
+
+//This should only be run on verbose mode to display
+//explicit IR.
+llvm::GenericValue CodeGenContext::runCode() {
+    GenericValue v;
+    try {
+
         std::string eeError;
         ee = EngineBuilder(std::move(TheModule)).setErrorStr(&eeError).create();
         if (!ee) {
@@ -124,36 +143,6 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
             throw std::runtime_error(err);
         }
 
-        //ORC stuff, (Basically evaluate top level expression of the bytecode generated)
-        //               auto RT = TheJIT->getMainJITDylib().createResourceTracker();
-        //
-        //               auto TSM = llvm::orc::ThreadSafeModule(std::move(TheModule), std::move(TheContext));
-        //               ExitOnErr(TheJIT->addModule(std::move(TSM), RT));
-        //        //        //NOTE: Could encapsulate constructors init in a function
-        //        //
-        //               auto ExprSymbol = TheJIT->lookup("my_fn");
-        //        //
-        //               if (!ExprSymbol) {
-        //                   ExitOnErr(ExprSymbol.takeError());
-        //               }
-        //
-        //        //        // Get the symbol's address and cast it to the right type (takes no
-        //        //        // arguments, returns a double) so we can call it as a native function.
-        //               double (*FP)() = ExprSymbol->getAddress().toPtr<double (*)()>();
-        //               fprintf(stderr, "Evaluated to %f\n", FP());
-        //        //
-        //        //        // Delete the anonymous expression module from the JIT.
-        //               ExitOnErr(RT->remove());
-    }
-    popBlock();
-}
-
-llvm::GenericValue CodeGenContext::runCode() {
-    std::cout << "Running code...\n";
-    GenericValue v;
-    try {
-
-        // FIXME: Returning exception for some reason!! after calling function
         ee->finalizeObject();
 
         if (ee->hasError()) {
@@ -165,12 +154,11 @@ llvm::GenericValue CodeGenContext::runCode() {
 
         std::vector<GenericValue> noargs;
         v = ee->runFunction(ee->FindFunctionNamed("main"), noargs);
-        std::cout << "Code was run.\n";
 
     } catch (const std::exception &e) {
         if (e.what()) {
-            std::cout << e.what() << std::endl;
-            std::cout << ee->getErrorMessage() << std::endl;
+            std::cerr << e.what() << std::endl;
+            std::cerr << ee->getErrorMessage() << std::endl;
         }
     }
 
@@ -186,6 +174,47 @@ void CodeGenContext::setTargets() {
 
     auto TargetTriple = LLVMGetDefaultTargetTriple();
     TheModule->setTargetTriple(TargetTriple);
+}
+
+int CodeGenContext::dumpIR() {
+
+    std::error_code EC;
+
+
+    auto trim_extension = [&](std::string &filename) {
+        assert(!filename.empty() && !binary_name.empty() );
+        auto pos = filename.find_last_of('.');
+        if (pos != std::string::npos) {
+            filename = filename.substr(0, pos);
+        } 
+            filename += ".ll";
+
+      std::cout << filename << std::endl;
+    };
+
+    trim_extension(dump_file_name);
+
+    llvm::raw_fd_ostream OS(dump_file_name, EC, llvm::sys::fs::OF_None);
+
+    if (EC) {
+        errs();
+        return EXIT_FAILURE;
+    }
+    //Dump ir to ll file
+    TheModule->print(OS, nullptr);
+
+    //Run sh to compile to binary
+    std::string cmd = FUSE_RUNNER_PATH;
+    cmd += " " + dump_file_name + " " + binary_name;
+    
+    int result = system(cmd.c_str()); //Run sh script
+    if(result == -1){
+      std::cerr << "FUSE: sh command error" << std::endl;
+      return EXIT_FAILURE;
+    }
+
+
+    return EXIT_SUCCESS;
 }
 
 // Helpers
@@ -306,7 +335,6 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context) {
 }
 
 llvm::Value *NDouble::codeGen(CodeGenContext &context) {
-    std::cout << "Generating code for double: " << value << std::endl;
     // Communicates context with generated bytecode
     return llvm::ConstantFP::get(*context.TheContext, llvm::APFloat(this->value));
 }
@@ -1077,18 +1105,15 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
             if (!stepVal || stepVal->getType()->isVoidTy()) {
                 return nullptr;
             }
-            stepVal->print(llvm::errs());
         }
 
         if (isAlloca) {
             //Store step expression into current variabl
             Value *next_val = context.Builder->CreateStore(stepVal, allocInst);
-            next_val->print(llvm::errs());
             assert(next_val);
 
         } else {
             Value *next_val = context.Builder->CreateStore(stepVal, gVar);
-            next_val->print(llvm::errs());
             assert(next_val);
         }
         context.Builder->CreateBr(stepBB);
@@ -1150,7 +1175,6 @@ llvm::Value *NElseStatement::codeGen(CodeGenContext &context) {
 }
 
 llvm::Value *NBreakStatement::codeGen(CodeGenContext &context) {
-    std::cout << "Generating code for break statement" << std::endl;
 
     //This solution particularly bad but Ill be using it for now...
     //Instead of trying to cast each node of the ast to check whether its a break statement(It failed for some reason)
@@ -1169,7 +1193,6 @@ llvm::Value *NBreakStatement::codeGen(CodeGenContext &context) {
 }
 
 llvm::Value *NContinueStatement::codeGen(CodeGenContext &context) {
-    std::cout << "Generating code for continue statement" << std::endl;
 
     if (context.loop_start_bb.has_value()) {
         return context.Builder->CreateBr(context.next_jumpable_bb.value());

@@ -33,7 +33,7 @@ extern "C" int yylex() {
         token = lexerInstance->get_next_token();
     }
 
-    std::cout << token << std::endl;
+    // std::cout << token << std::endl;
 
     // Token types defined in bison file
     switch (token.getType()) {
@@ -308,9 +308,9 @@ Lexer::Lexer(const std::fstream &src) : input() {
     ss << src.rdbuf();
     if (!src.good()) {
         if (src.eof()) {
-            std::cout << "EOF reached" << std::endl;
+            std::cerr << "EOF reached" << std::endl;
         } else if (src.fail() || src.bad()) {
-            std::cout << "Logical error on i/o operation" << std::endl;
+            std::cerr << "Logical error on i/o operation, Unable to read from file" << std::endl;
             exit(1);
         }
     }
@@ -630,7 +630,6 @@ Token Lexer::get_next_token() {
 
                     Token tok = Token(DOUBLE, std::string{_position, buffer});
                     _position = buffer;
-                    std::cout << tok << std::endl;
                     return tok;
                 }
 

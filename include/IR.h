@@ -25,6 +25,8 @@
 #include <memory>
 #include <stack>
 
+
+
 // static std::map<std::string, llvm::Value*> scopeVars;
 
 // NOTE: Some of the code here was referenced from llvm.org
@@ -127,14 +129,19 @@ public:
     //Loop exit stuff(purely experimental)
     std::optional<llvm::BasicBlock*> loop_start_bb;
     std::optional<llvm::BasicBlock*> next_jumpable_bb;
+    bool _verbose_mode;
     bool exit_loop = false;
+    std::string dump_file_name;
+    const std::string binary_name;
 
     llvm::Function *globalFn;// Entry point function aka 'Main'
 
-    CodeGenContext();
+    CodeGenContext(bool, std::string, std::string);
     void emitIR(NBlock &srcRoot);
     void setTargets();
     llvm::GenericValue runCode();
+
+    int dumpIR();
 
     fuseData::varData* checkLocal(std::string &id,
                                  std::shared_ptr<CodeGenBlock> block);
