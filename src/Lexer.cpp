@@ -10,11 +10,14 @@
 
 #include "../build/parser.hpp"
 
+extern const char* _global_file_name;
+
 // BISON Interface
 extern "C" int yylex() {
     if (!lexerInstance) {
-        std::fstream file{"../examples/new.pour"};
-        lexerInstance = new Lexer(file);
+        if (_global_file_name) {
+            lexerInstance = new Lexer(std::fstream(_global_file_name));
+        }
     }
 
     Token token = lexerInstance->get_next_token();
@@ -295,8 +298,8 @@ Token checkKeywordFromMap(
     return Token(INVALID, keyword);
 }
 
-Lexer::Lexer(const std::string &input)
-    : input(input), _position(this->input.begin()) {}
+// Lexer::Lexer(const std::string &file_path)
+//     : input(file_path), _position(this->input.begin()) {}
 
 Lexer::Lexer(const std::fstream &src) : input() {
 
@@ -306,10 +309,9 @@ Lexer::Lexer(const std::fstream &src) : input() {
     if (!src.good()) {
         if (src.eof()) {
             std::cout << "EOF reached" << std::endl;
-        } else if (src.fail()) {
+        } else if (src.fail() || src.bad()) {
             std::cout << "Logical error on i/o operation" << std::endl;
-        } else if (src.bad()) {
-            std::cout << "Read/write error on i/o operation" << std::endl;
+            exit(1);
         }
     }
     input = ss.str();
@@ -560,12 +562,12 @@ Token Lexer::get_next_token() {
             // find closing pair
             auto closing_match = std::find(_position, input.end(), '"');
 
-            if (  *closing_match == '"') {
+            if (*closing_match == '"') {
                 // I need to move closing_match since it will set the char again in a
                 // quote, causing this function to be called more than once!
 
                 move_itr_bounds(input, closing_match);
-                _position = closing_match; // -1 so we return the character, not the quote
+                _position = closing_match;// -1 so we return the character, not the quote
 
                 return Token(STRING, std::string{old_pos, _position - 1});
             }

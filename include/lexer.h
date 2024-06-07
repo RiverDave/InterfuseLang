@@ -6,12 +6,14 @@
 #include <optional>
 #include <vector>
 
+extern const char* _global_file_name;
 
 class Lexer final {
 private:
 public:
     std::string input;
     std::string::iterator _position;
+    const char* file_name;
 
     explicit Lexer(const std::string &);
     explicit Lexer(const std::fstream &);

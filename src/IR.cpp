@@ -181,7 +181,7 @@ void CodeGenContext::setTargets() {
     LLVMLinkInMCJIT();
     LLVMInitializeNativeTarget();
     LLVMInitializeNativeAsmPrinter();
-    LLVMInitializeNativeAsmParser();//FIXME: This wouldn't link for some
+    LLVMInitializeNativeAsmParser();
     // reason
 
     auto TargetTriple = LLVMGetDefaultTargetTriple();
@@ -706,7 +706,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         }
 
 
-        //        context.TheFPM->run(*fn);
+        context.TheFPM->run(*fn);
         verifyFunction(*fn);
 
         context.popBlock();
@@ -778,9 +778,9 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
 
     if (fn && find != context.globals.end()) {
 
-      //Really hard coded for now, but will improve later(to support chained strings etc...)
+        //Really hard coded for now, but will improve later(to support chained strings etc...)
         if (this->arguments.size() == 1 && fn->getName() == "printf") {
-            llvm::CallInst* call = createOutCall(context, this->arguments[0]->codeGen(context));
+            llvm::CallInst *call = createOutCall(context, this->arguments[0]->codeGen(context));
             return call;
         }
 

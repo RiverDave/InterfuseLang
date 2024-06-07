@@ -1,8 +1,0 @@
-fn @second() -> int {
-  ret 25 + 100;
-};
-
-@a : int = @second();
-
-@printf(@a);
-@puts("Elton John");

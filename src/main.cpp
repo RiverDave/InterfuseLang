@@ -6,25 +6,56 @@ extern int yyparse();
 extern void initializeLexer();
 extern NBlock *programBlock;
 
-int main() {
+//Path to .fuse file
+const char *_global_file_name;
 
-  if (yyparse() == 0) {
-    try {
+//TODO: flag that outputs not just the result of the program but also the IR generated llvm code.
+bool isVerbose = false;
 
-      CodeGenContext context;
-      context.setTargets();
-      context.emitIR(*programBlock);
-      context.runCode();
 
-    } catch (const std::runtime_error &e) {
-      std::cerr << e.what() << std::flush;
+int main(int argc, char **argv) {
+
+    if (argc > 0 && argv[1] == NULL) {
+        std::cerr << "No input file provided" << std::endl;
+        exit(1);
+    } else {
+
+      //Assert that only .fuse files are accepted
+        auto has_extension = [&](const std::string &filename, const std::string &extension) {
+            if (filename.length() >= extension.length()) {
+              //Pass lenghts & content
+                return (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension));
+            }
+
+            return false;
+        };
+
+
+        if(!has_extension(argv[1], ".fuse")){
+
+            std::cerr << "Invalid file extension in file name " << argv[1] << std::endl;
+            exit(1);
+        }
+        _global_file_name = argv[1];
     }
 
-  } else {
 
-    std::cerr << "Parsing failed" << std::endl;
-  }
+    if (yyparse() == 0) {
+        try {
 
-  return 0;
+            CodeGenContext context;
+            context.setTargets();
+            context.emitIR(*programBlock);
+            context.runCode();
+
+        } catch (const std::runtime_error &e) {
+            std::cerr << e.what() << std::flush;
+        }
+
+    } else {
+
+        std::cerr << "Parsing failed" << std::endl;
+    }
+
+    return 0;
 }
-
