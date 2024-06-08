@@ -23,10 +23,10 @@
 
 using namespace llvm;
 
-extern const char* _global_file_name;
+extern const char *_global_file_name;
 
-CodeGenContext::CodeGenContext(bool verboseMode, std::string fname, std::string exec_name) :
-  blocks(), _verbose_mode(verboseMode), dump_file_name(fname), binary_name(exec_name) {
+CodeGenContext::CodeGenContext(bool verboseMode, std::string fname, std::string exec_name)
+    : blocks(), _verbose_mode(verboseMode), dump_file_name(fname), binary_name(exec_name) {
     // Init core llvm
     TheContext = std::make_unique<llvm::LLVMContext>();
     TheModule = std::make_unique<llvm::Module>("Pourer", *TheContext);
@@ -113,6 +113,7 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
 
         //Output code if requested
         if (_verbose_mode) {
+          std::cout << "Printing IR code\n";
             TheModule->print(llvm::errs(), nullptr);
         }
 
@@ -182,14 +183,14 @@ int CodeGenContext::dumpIR() {
 
 
     auto trim_extension = [&](std::string &filename) {
-        assert(!filename.empty() && !binary_name.empty() );
+        assert(!filename.empty() && !binary_name.empty());
         auto pos = filename.find_last_of('.');
         if (pos != std::string::npos) {
             filename = filename.substr(0, pos);
-        } 
-            filename += ".ll";
+        }
+        filename += ".ll";
 
-      std::cout << filename << std::endl;
+        std::cout << filename << std::endl;
     };
 
     trim_extension(dump_file_name);
@@ -206,11 +207,11 @@ int CodeGenContext::dumpIR() {
     //Run sh to compile to binary
     std::string cmd = FUSE_RUNNER_PATH;
     cmd += " " + dump_file_name + " " + binary_name;
-    
-    int result = system(cmd.c_str()); //Run sh script
-    if(result == -1){
-      std::cerr << "FUSE: sh command error" << std::endl;
-      return EXIT_FAILURE;
+
+    int result = system(cmd.c_str());//Run sh script
+    if (result == -1) {
+        std::cerr << "FUSE: sh command error" << std::endl;
+        return EXIT_FAILURE;
     }
 
 
@@ -662,6 +663,11 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
                                     context.TheModule.get());
     assert(fn);
 
+    //Define this early to allow recursive calls
+    context.globals[this->id.name] =
+            fuseData::globalInfo{fn, this->retType.getType(context), fn->getFunctionType()};
+
+
     // Function was defined(has block)
     if (fnBlock) {
 
@@ -689,31 +695,15 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
             context.Builder->CreateStore(*&argValue, alloc, false);
         }
 
-        // Now generate the function body
+        // generate the function body
         Value *generatedFnCode = fnBlock->codeGen(context);
         context.blocks.top()->return_value = generatedFnCode;//Innecessary for now
-
-
-        //NOTE: Experimental for now...
-        //        if (context.blocks.top()->blockWrapper != BB) {//Basic block has probably changed
-        //            //Top should now be last block emmited from code gen
-        //
-        //            auto nBlock = context.blocks.top();
-        //            //NOTE: THis might lead to errors, considering a function
-        //            //can have multiple blocks inserted at its end because of
-        //            //if stmts or loops...
-        //            while (context.blocks.top()->blockWrapper != &fn->getEntryBlock()) {
-        //                context.popBlock();
-        //            }
-        //            context.blocks.top() = nBlock;// Copy last emitted block into the top
-        //        }
-
 
         bool hasReturnInst = false;
         //TODO: If a function contains multiple blocks based on control flow statements
         // the last block does not necessarily need contain a return statement
         // if there's a return statement on both if else blocks. this is very
-        // specific but is a thing to consider.
+        // specific but is a thing to consider.(Control flow analysis)
         for (auto &I: *context.blocks.top()->blockWrapper) {// -> check last emmited block from function
             if (llvm::isa<llvm::ReturnInst>(&I)) {
                 hasReturnInst = true;
@@ -740,8 +730,8 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         context.popBlock();
         context.Builder->SetInsertPoint(context.blocks.top()->blockWrapper);
 
-        context.globals[this->id.name] =
-                fuseData::globalInfo{fn, this->retType.getType(context), fn->getFunctionType()};
+        // context.globals[this->id.name] =
+        //         fuseData::globalInfo{fn, this->retType.getType(context), fn->getFunctionType()};
 
         // fn->print(llvm::errs());
 

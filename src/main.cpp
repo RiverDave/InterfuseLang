@@ -11,7 +11,7 @@ const char *_global_file_name;
 const char *_binary_name;
 
 //TODO: flag that outputs not just the result of the program but also the IR generated llvm code.
-static bool _verbose_mode = false;
+static bool _verbose_mode = true;
 
 
 int main(int argc, char **argv) {
@@ -51,6 +51,8 @@ int main(int argc, char **argv) {
             context.setTargets();
             context.emitIR(*programBlock);
             context.dumpIR();
+            if(_verbose_mode)
+              context.runCode();
 
 
         } catch (const std::runtime_error &e) {
