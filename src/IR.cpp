@@ -23,7 +23,7 @@
 
 using namespace llvm;
 
-extern const char *_global_file_name;
+extern const char *_global_file_path;
 
 CodeGenContext::CodeGenContext(bool verboseMode, std::string fname, std::string exec_name)
     : blocks(), _verbose_mode(verboseMode), dump_file_name(fname), binary_name(exec_name) {

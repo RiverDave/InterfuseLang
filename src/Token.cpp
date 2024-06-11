@@ -1,4 +1,4 @@
-#include "../include/Token.h"
+#include "Token.h"
 #ifndef TOKEN_CPP
 #define TOKEN_CPP
 

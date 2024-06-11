@@ -1,6 +1,6 @@
 %{ 
 
-    #include "../include/Lexer.h"
+    #include "Lexer.h"
 
 
 //To be accessed in the lexer 

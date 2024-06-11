@@ -1,25 +1,5 @@
-fn @factorial(@n : int) -> int {
+ajaj
 
-  if @n == 0{
-    ret 1;
-  } else {
-    ret @n * @factorial(@n - 1);
-  };
-
-  ret 0;
-};
-
-fn @fibonacci(@n : int) -> int {
-  if @n <= 1 {
-    ret @n;
-  } else {
-    ret @fibonacci(@n - 1) + @fibonacci(@n - 2);
-  };
-  ret 0;
-};
-
-@recval : int = @fibonacci(5);
-@printf(@recval);
 
 
 

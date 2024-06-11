@@ -13,7 +13,6 @@ set (CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 17)
 
 
-# All headers shall be saved in here
 set(SOURCES
             src/main.cpp
             src/Lexer.cpp
@@ -26,9 +25,12 @@ set(SOURCES
             include/Intercore.hpp
             src/IR.cpp
             include/internals.hpp
+            src/IteratorInterface.cpp
             src/parser.y
 
 )
+
+# set(SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 set(INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include")
 

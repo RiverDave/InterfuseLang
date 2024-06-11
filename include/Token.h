@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <optional>
 #ifndef TOKEN_H
 #define TOKEN_H
 
@@ -93,12 +94,37 @@ enum TOKEN_TYPE {
     T_EOF,// Denotes end of file
 };
 
+struct TokenLocation {
+
+    int line = 1;
+    //first -> column number, second -> denotes the end 
+    std::pair<int, std::optional<int>> range = {1, std::nullopt};
+
+    std::ostream &display(std::ostream &os) const {
+        os << "" << line << ":" << range.first ;
+
+        if (range.second.has_value() && range.second != 0 && range.second != range.first) {
+            os << "-" << range.second.value() << std::endl;
+        }
+
+        return os;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const TokenLocation &obj) {
+        return obj.display(os);
+    }
+};
+
 class Token {
 
 public:
     explicit Token(TOKEN_TYPE TokenType = INVALID,
-                   const std::string &v = "Unknown")
-        : type(TokenType), value(v) {}
+                   const std::string &val = "Unknown")
+        : type(TokenType), value(val) {}
+
+    explicit Token(TOKEN_TYPE TokenType, const std::string &val,
+                   TokenLocation loc)
+        : type(TokenType), value(val), location(loc) {}
 
     Token(const Token &other) : type(other.type), value(other.value) {}
 
@@ -115,6 +141,9 @@ public:
 
     [[nodiscard]] TOKEN_TYPE getType() { return type; };
     [[nodiscard]] const std::string getValue() { return value; };
+    [[nodiscard]] TokenLocation getLocation() { return location; };
+    void setLocation(TokenLocation loc) { location = loc; };
+
 
 private:
     //TODO: Add line number and column number to track the position of the token
@@ -122,6 +151,7 @@ private:
 
     TOKEN_TYPE type;
     std::string value;
+    TokenLocation location;
 
     std::ostream &display(std::ostream &os) const {
 

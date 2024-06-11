@@ -1,38 +1,39 @@
 #ifndef LEXER_H
 #define LEXER_H
-#include "./AST.h"
-#include "./Token.h"
+#include "AST.h"
+#include "Token.h"
+#include "IteratorInterface.h"
 #include <fstream>
 #include <optional>
-#include <vector>
 
-extern const char* _global_file_name;
+extern const char *_global_file_path;
+
 
 class Lexer final {
 private:
 public:
     std::string input;
-    std::string::iterator _position;
-    const char* file_name;
+    IteratorInterface _position;
+    const char *file_name;
 
-    explicit Lexer(const std::string &);
     explicit Lexer(const std::fstream &);
 
     [[nodiscard]]
     Token get_next_token();
 
-    std::optional<char> check_next_char();
+    std::optional<char> peek_next_char();
+    [[nodiscard]] Token invalidToken(std::string value = "\0") {
+        return Token{INVALID, value, TokenLocation{this->_position.getLocation()}};
+    };
 
-    //helps to classify each sub_token type
-    //no discard is used to ensure that the return value is used
-    //otherwise a warning will be issued
-    [[nodiscard]]
-    std::vector<Token> tokenize();
+    inline Token checkKeywordFromMap(
+            const std::string &keyword,
+            const std::unordered_map<std::string, TOKEN_TYPE> &mp);
 };
 
 //To be integrated with the parser(BISON)
 
-static Lexer *lexerInstance = nullptr;
+static Lexer* lexerInstance = nullptr;
 extern "C" int yylex();
 
 

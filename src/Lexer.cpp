@@ -1,4 +1,4 @@
-#include "../include/Lexer.h"//FIXME: These shouldn't be included with relative path
+#include "Lexer.h"//FIXME: These shouldn't be included with relative path
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -6,34 +6,45 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 #include "../build/parser.hpp"
 
-extern const char* _global_file_name;
+extern const char *_global_file_path;
+
+
+inline void logError(Token &tok, const std::string &msg) {
+    std::cerr << "Error: " << msg << " at " << tok.getLocation() << std::endl;
+}
 
 // BISON Interface
 extern "C" int yylex() {
     if (!lexerInstance) {
-        if (_global_file_name) {
-            lexerInstance = new Lexer(std::fstream(_global_file_name));
+        if (_global_file_path) {
+            lexerInstance = new Lexer(std::fstream(_global_file_path));
         }
     }
 
+    assert(lexerInstance);
     Token token = lexerInstance->get_next_token();
+    token.setLocation(lexerInstance->_position.getLocation());
 
     // Skip whitespaces, They're not relevant in the parsing process
     while (token.getType() == SPACE || token.getType() == COMMENT_SINGLE_LINE ||
            token.getType() == COMMENT_MULTI_LINE) {
 
-        if (lexerInstance->_position == lexerInstance->input.end()) {
+        //Exit lexing process
+        if (*lexerInstance->_position == lexerInstance->input.end()) {
+
+            std::cout << "Lexing finished: " << std::endl;
+            std::cout << " Line: " << lexerInstance->_position.getLocation().line << " Col: " << lexerInstance->_position.getLocation().range.first << std::endl;
             return 0;
         }
 
         token = lexerInstance->get_next_token();
+        token.setLocation(lexerInstance->_position.getLocation());
     }
 
-    // std::cout << token << std::endl;
+    //    std::cout << token << std::endl;
 
     // Token types defined in bison file
     switch (token.getType()) {
@@ -193,26 +204,20 @@ extern "C" int yylex() {
             yylval.token = new Token(token);
             return TKSTRING;
 
-        // case COMMENT_SINGLE_LINE:
-        //   yylval.token = new Token(token);
-        //   return TKSINGLECOMMENT;
-        //
-        // case COMMENT_MULTI_LINE:
-        //   yylval.token = new Token(token);
-        //   return TKMULTICOMMENT;
-        default:
-            return 0;// Return 0 if no more tokens
-    }
-}
-// std::cout << "Tokenized: " << token << std::endl;
-// return token.getType();
+        case INVALID: {//This should not be necessary for error recovery matters(I think so)
+            logError(token, "Invalid token");
+            return EXIT_FAILURE;
+        }
 
-// Since this is static it requires to be initialized
-// outside for some reason
-// std::unordered_map<char, CHAR_TYPE> Lexer::subTokenClassifier;
+        default:
+            return 0;
+    }
+
+    return 0;
+}
 
 // utils
-inline bool isWhiteSpaPERAce(const char ch) {
+inline bool isWhiteSpace(const char ch) {
     return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
 }
 
@@ -225,8 +230,8 @@ inline bool isString(const char ch) { return ch == '"' || ch == '\''; }
 // Will ensure there are 3 consecutive backticks to demark it as multiblock
 // comment
 
-auto check_consecutive_backticks = [](const std::string::iterator &_position,
-                                      const std::string &input) -> bool {
+inline bool check_consecutive_backticks(const std::string::iterator &_position,
+                                        const std::string &input) {
     auto _pos = _position;
 
     int count{};
@@ -246,18 +251,15 @@ auto check_consecutive_backticks = [](const std::string::iterator &_position,
     return false;
 };
 
-auto move_itr_bounds = [](const std::string &input, auto &_itr) -> void {
+inline void move_itr_bounds(const std::string &input, std::string::iterator &_itr) {
     if (_itr != input.end()) {
         _itr++;
     } else {
         return;
     }
 };
-
 // Should be able to find closing pair like -> "" , ''
 
-// TODO: Create error handling function that terminates program
-// if lexing process failed(invalid token)
 
 // determines type of keyword
 
@@ -288,20 +290,17 @@ static const std::unordered_map<std::string, TOKEN_TYPE> dataTypeMap = {
         {"char", DATA_TYPE},
         {"void", DATA_TYPE}};
 
-Token checkKeywordFromMap(
+inline Token Lexer::checkKeywordFromMap(
         const std::string &keyword,
         const std::unordered_map<std::string, TOKEN_TYPE> &mp) {
     auto it = mp.find(keyword);
     if (it != mp.end()) {
         return Token(it->second, keyword);
     }
-    return Token(INVALID, keyword);
+    return invalidToken(keyword);
 }
 
-// Lexer::Lexer(const std::string &file_path)
-//     : input(file_path), _position(this->input.begin()) {}
-
-Lexer::Lexer(const std::fstream &src) : input() {
+Lexer::Lexer(const std::fstream &src) : input(), _position() {
 
     // Read file and store its data it in a string_view
     std::ostringstream ss;
@@ -314,17 +313,18 @@ Lexer::Lexer(const std::fstream &src) : input() {
             exit(1);
         }
     }
+
     input = ss.str();
-    _position = input.begin();
+    _position.setInput(input);
 }
 
 // NOTE: If no further condition is needed here
 // consider unwrapping this condition
 inline bool isNumeric(char ch) { return isdigit(ch); }
 
-std::optional<char> Lexer::check_next_char() {
+std::optional<char> Lexer::peek_next_char() {
 
-    const std::optional<char> next = *_position;
+    const std::optional<char> next = **_position;
 
     if (next.has_value()) {
         return next.value();
@@ -332,23 +332,18 @@ std::optional<char> Lexer::check_next_char() {
     return std::nullopt;
 }
 
-// TODO: Some of this cases are very repetitive and could be simplified in a
-// function that matches the consecutives chars as paraemeters, something like:
-// match_consecutive_chars("=") || match_consecutive_chars(">")
 Token Lexer::get_next_token() {
 
     // Should be referenced to input
-    auto curr_char = *_position;
+    char curr_char = **_position;
     switch (curr_char) {
 
         case '&': {
             ++_position;
-            auto next = check_next_char();
-            if (next.has_value()) {
-                if (next.value() == '&') {
-                    _position += 2;
-                    return Token(OPERATOR_AND, "&&");
-                }
+            std::optional<char> next = peek_next_char();
+            if (next.has_value() && next.value() == '&') {
+                _position += 2;
+                return Token(OPERATOR_AND, "&&");
             }
         }
             // Im not including bitwise stuff for now
@@ -356,24 +351,20 @@ Token Lexer::get_next_token() {
 
         case '|': {
             ++_position;
-            auto next = check_next_char();
-            if (next.has_value()) {
-                if (next.value() == '|') {
-                    _position += 2;
-                    return Token(OPERATOR_OR, "||");
-                }
+            auto next = peek_next_char();
+            if (next.has_value() && next.value() == '|') {
+                _position += 2;
+                return Token(OPERATOR_OR, "||");
             }
         }
             return Token(INVALID, "|");
 
         case '!': {
             ++_position;
-            auto next = check_next_char();
-            if (next.has_value()) {
-                if (next.value() == '=') {
-                    _position += 2;
-                    return Token(OPERATOR_NOT_EQUALS, "!=");
-                }
+            auto next = peek_next_char();
+            if (next.has_value() && next.value() == '=') {
+                _position += 2;
+                return Token(OPERATOR_NOT_EQUALS, "!=");
             }
         }
             return Token(OPERATOR_NEGATION, "!");
@@ -384,12 +375,10 @@ Token Lexer::get_next_token() {
 
         case '=': {
             ++_position;
-            auto next = check_next_char();
-            if (next.has_value()) {
-                if (next.value() == '=') {
-                    _position += 2;
-                    return Token(OPERATOR_EQUALS, "==");
-                }
+            auto next = peek_next_char();
+            if (next.has_value() && next.value() == '=') {
+                _position += 2;
+                return Token(OPERATOR_EQUALS, "==");
             }
         }
             return Token(ASSIGNMENT, "=");
@@ -426,12 +415,10 @@ Token Lexer::get_next_token() {
 
         case '-': {
             ++_position;
-            auto next = check_next_char();
-            if (next.has_value()) {
-                if (next == '>') {
-                    ++_position;
-                    return Token(ARROW, "->");
-                }
+            auto next = peek_next_char();
+            if (next.has_value() && next.value() == '>') {
+                ++_position;
+                return Token(ARROW, "->");
             }
         }
             return Token(OPERATOR_MINUS, "-");
@@ -439,12 +426,10 @@ Token Lexer::get_next_token() {
         case ':': {
 
             ++_position;
-            auto next = check_next_char();
-            if (next.has_value()) {
-                if (next == '=') {
-                    ++_position;
-                    return Token(RANGE_INCLUSIVE, ":=");
-                }
+            auto next = peek_next_char();
+            if (next.has_value() && next.value() == '=') {
+                ++_position;
+                return Token(RANGE_INCLUSIVE, ":=");
             }
         }
             return Token(COLON, ":");
@@ -472,7 +457,7 @@ Token Lexer::get_next_token() {
         case '#': {
 
             // Look for an endline '\n' and ignore all chars in between
-            auto endline = std::find(_position, input.end(), '\n');
+            auto endline = std::find(*_position, input.end(), '\n');
 
             if (endline != input.end()) {
                 ++endline;
@@ -485,7 +470,7 @@ Token Lexer::get_next_token() {
 
         case '<': {
             ++_position;
-            auto next = check_next_char();
+            auto next = peek_next_char();
             if (next.has_value()) {
                 if (next == '=') {
                     ++_position;
@@ -497,7 +482,7 @@ Token Lexer::get_next_token() {
 
         case '>': {
             ++_position;
-            auto next = check_next_char();
+            auto next = peek_next_char();
             if (next.has_value()) {
                 if (next == '=') {
                     ++_position;
@@ -523,7 +508,7 @@ Token Lexer::get_next_token() {
             // Handle multi line comments which are used with ``` like in markdown
             // Im aware this type of logic could be greatly simplified with std::regex
 
-            if (check_consecutive_backticks(_position, input)) {
+            if (check_consecutive_backticks(*_position, input)) {
                 _position += 3;
 
                 // auto literal = *_position + *_position + *_position;
@@ -531,7 +516,7 @@ Token Lexer::get_next_token() {
                 multi_comment += curr_char;
                 multi_comment += curr_char;
 
-                auto closing_comment = std::find(_position, input.end(), curr_char);
+                auto closing_comment = std::find(*_position, input.end(), curr_char);
 
                 if (closing_comment == input.end() ||
                     !check_consecutive_backticks(closing_comment, input)) {
@@ -554,13 +539,13 @@ Token Lexer::get_next_token() {
         case '"': {
 
 
-            // Moves iterator to avoid finding the current char
+            // Move iterator to avoid finding the current char
 
-            move_itr_bounds(input, _position);
-            auto old_pos = _position;
+            move_itr_bounds(input, *_position);
+            std::string::iterator old_pos = *_position;
 
             // find closing pair
-            auto closing_match = std::find(_position, input.end(), '"');
+            auto closing_match = std::find(*_position, input.end(), '"');
 
             if (*closing_match == '"') {
                 // I need to move closing_match since it will set the char again in a
@@ -569,12 +554,12 @@ Token Lexer::get_next_token() {
                 move_itr_bounds(input, closing_match);
                 _position = closing_match;// -1 so we return the character, not the quote
 
-                return Token(STRING, std::string{old_pos, _position - 1});
+                return Token(STRING, std::string{old_pos, *_position - 1});
             }
 
             ++_position;
             return Token(INVALID, "\0");
-        } break;
+        }
 
         default:
 
@@ -585,24 +570,22 @@ Token Lexer::get_next_token() {
                 // We'll keep moving our iterator until we find something that
                 // is not alphabetic: @number=32;
 
-                auto old_pos = _position;
+                std::string::iterator old_pos = *_position;
 
                 // Move itr to avoid lexing '@'
-                move_itr_bounds(input, _position);
+                move_itr_bounds(input, *_position);
 
-                if (old_pos == _position || _position == input.end() ||
-                    *_position == '@') {
+                if (old_pos == *_position || *_position == input.end() ||
+                    **_position == '@') {
                     // out of bounds, prolly end of string
                     return Token(INVALID, "\0");
                 }
 
                 std::string::iterator buffer =
-                        std::find_if_not(_position, input.end(),
+                        std::find_if_not(*_position, input.end(),
                                          [&](char ch) { return isalnum(ch) || ch == '_'; });
 
-                // range initialization
-                std::string identifier = {_position, buffer};
-                // std::cout << *buffer << "\n";
+                std::string identifier = {*_position, buffer};
 
                 // word found could be a Pourer keyword
                 _position = buffer;
@@ -610,71 +593,64 @@ Token Lexer::get_next_token() {
                 // update current position
             } else if (isNumeric(curr_char)) {
 
-                // auto next_two_chars = std::string(_position + 1, _position + 3);
-                // if (next_two_chars == "..") {
-                //   _position += 2;
-                //   std::cout << "RANGE DOT\n";
-                //   return Token(RANGE_DOT, "0..");
-                // }
 
-                auto buffer = std::find_if_not(_position, input.end(), [&](char ch) {
+                auto buffer = std::find_if_not(*_position, input.end(), [&](char ch) {
                     return isNumeric(ch) || ch == '.';
                 });
 
                 // get dot count
-                auto dotcnt = std::count(_position, buffer, '.');
+                auto dotcnt = std::count(*_position, buffer, '.');
 
                 if (dotcnt > 1) {
                     return Token(INVALID, "\0");
                 } else if (dotcnt == 1) {
 
-                    Token tok = Token(DOUBLE, std::string{_position, buffer});
+                    Token tok = Token(DOUBLE, std::string{*_position, buffer});
                     _position = buffer;
                     return tok;
                 }
 
-                std::string number = {_position, buffer};
+                std::string number = {*_position, buffer};
                 _position = buffer;
                 return Token(NUMBER, number);
-            } else {// token could potentially be a keyword
+            } else if (isalnum(curr_char)) {// token could potentially be a keyword
 
-                const auto buffer = std::find_if_not(_position, input.end(), isalnum);
-                const std::string word = {_position, buffer};
-                _position = buffer;
+                const auto buffer = std::find_if_not(*_position, input.end(), isalnum);
+
+                //Copy iterator to get end of word to determing range( a bit costly, Im aware)
+                IteratorInterface it_limit{_position};
+                it_limit = buffer - 1;// -1 Since we want the exact location of the last char of the word
+                                      // Consider that buffer points to the first non alphanum char
+
+                _position.getLocation().range.second = it_limit.getLocation().range.first;
+                assert(_position.getLocation().range.second.has_value() &&//-> not sure if this assertion is necessary at all
+                       _position.getLocation().range.second >= _position.getLocation().range.first && "Invalid range assignment");
+
+                const std::string word = {*_position, buffer};
 
                 // Check  keyword is valid
-                auto tok = checkKeywordFromMap(word, keywordMap);
+                Token tok = checkKeywordFromMap(word, keywordMap);
+
                 if (tok.getType() != INVALID) {
+                    _position = buffer;
+
                     return tok;
                 } else {
                     tok = checkKeywordFromMap(word, dataTypeMap);
 
                     if (tok.getType() != INVALID) {
                         // not very efficient, I know
+                        _position = buffer;
                         return Token(DATA_TYPE, tok.getValue());
                     }
                 }
 
                 return Token(INVALID, "\0");
             }
-            break;
+            //            break;
             // token could be a keyword
 
             ++_position;
             return Token(INVALID, "\0");
     }
-}
-
-std::vector<Token> Lexer::tokenize() {
-
-    std::vector<Token> parsed_tokens;
-
-    while (_position != input.end()) {
-        // This function is in charge of updating
-        // the iterator's position
-        const Token curr_token = this->get_next_token();
-        parsed_tokens.push_back(curr_token);
-    }
-
-    return parsed_tokens;
 }
