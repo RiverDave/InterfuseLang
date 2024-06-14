@@ -1,11 +1,11 @@
 #ifndef LEXER_H
 #define LEXER_H
 #include "AST.h"
-#include "Token.h"
 #include "IteratorInterface.h"
+#include "Token.h"
 #include <fstream>
 #include <optional>
-
+#include <stack>
 extern const char *_global_file_path;
 
 
@@ -13,27 +13,30 @@ class Lexer final {
 private:
 public:
     std::string input;
-    IteratorInterface _position;
+    IteratorWrapper _position;
     const char *file_name;
+    std::stack<Token> test_stk;
 
     explicit Lexer(const std::fstream &);
 
     [[nodiscard]]
     Token get_next_token();
+    inline void move_itr_bounds();
 
+    Token handle_operator(char current, char next, TOKEN_TYPE current_op, TOKEN_TYPE next_op);
     std::optional<char> peek_next_char();
     [[nodiscard]] Token invalidToken(std::string value = "\0") {
         return Token{INVALID, value, TokenLocation{this->_position.getLocation()}};
     };
 
-    inline Token checkKeywordFromMap(
+    Token checkKeywordFromMap(
             const std::string &keyword,
             const std::unordered_map<std::string, TOKEN_TYPE> &mp);
 };
 
 //To be integrated with the parser(BISON)
 
-static Lexer* lexerInstance = nullptr;
+static Lexer *lexerInstance = nullptr;
 extern "C" int yylex();
 
 

@@ -1,6 +1,6 @@
 #include <iostream>
-#include <string>
 #include <optional>
+#include <string>
 #ifndef TOKEN_H
 #define TOKEN_H
 
@@ -97,17 +97,31 @@ enum TOKEN_TYPE {
 struct TokenLocation {
 
     int line = 1;
-    //first -> column number, second -> denotes the end 
-    std::pair<int, std::optional<int>> range = {1, std::nullopt};
+    //first -> first char of token, second -> denotes the last token
+    std::pair<size_t, std::optional<size_t>> range = {1, std::nullopt};
+
+    //sets coordinates of the last token, makes it overall easier to undestand
+    void setLocationDelimit(size_t val) { range.second = val; }
 
     std::ostream &display(std::ostream &os) const {
-        os << "" << line << ":" << range.first ;
+        os << "" << line << ":" << range.first;
 
         if (range.second.has_value() && range.second != 0 && range.second != range.first) {
-            os << "-" << range.second.value() << std::endl;
+            os << "-" << range.second.value();
         }
 
         return os;
+    }
+
+    bool operator>(const TokenLocation &other) const {
+        if (line > other.line)
+            return true;
+
+        if (line == other.line && range.first > other.range.first)
+            return true;
+
+
+        return false;
     }
 
     friend std::ostream &operator<<(std::ostream &os, const TokenLocation &obj) {
@@ -130,8 +144,10 @@ public:
 
     Token &operator=(const Token &other) {
         if (this != &other) {
+
             type = other.type;
             value = other.value;
+            location = other.location;
         }
         return *this;
     }
@@ -141,8 +157,8 @@ public:
 
     [[nodiscard]] TOKEN_TYPE getType() { return type; };
     [[nodiscard]] const std::string getValue() { return value; };
-    [[nodiscard]] TokenLocation getLocation() { return location; };
-    void setLocation(TokenLocation loc) { location = loc; };
+    [[nodiscard]] TokenLocation& getLocation() { return location; };
+    void setLocation(TokenLocation& loc) { location = loc; };
 
 
 private:

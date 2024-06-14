@@ -1,15 +1,17 @@
 #include "Lexer.h"//FIXME: These shouldn't be included with relative path
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <sstream>
+#include <stack>
 #include <string>
 #include <unordered_map>
 
 #include "../build/parser.hpp"
+#include "AST.h"
 
-extern const char *_global_file_path;
 
 
 inline void logError(Token &tok, const std::string &msg) {
@@ -25,8 +27,19 @@ extern "C" int yylex() {
     }
 
     assert(lexerInstance);
+
     Token token = lexerInstance->get_next_token();
-    token.setLocation(lexerInstance->_position.getLocation());
+
+    //Aside from 1 char tokens, multiple char token locations were set in
+    //the get_next_token function
+
+    if (token.getValue().size() == 1 && token.getType() != IDENTIFIER && token.getType() != SPACE) {
+        size_t nval = lexerInstance->_position.getLocation().range.first - 1;
+        TokenLocation loc = lexerInstance->_position.getLocation();
+        loc.range.first = nval;
+        token.setLocation(loc);
+    }
+
 
     // Skip whitespaces, They're not relevant in the parsing process
     while (token.getType() == SPACE || token.getType() == COMMENT_SINGLE_LINE ||
@@ -41,10 +54,30 @@ extern "C" int yylex() {
         }
 
         token = lexerInstance->get_next_token();
-        token.setLocation(lexerInstance->_position.getLocation());
+        //TODO: FIX THE OFFSET BY 1 & fix this mess of code
+        if (token.getValue().size() == 1 && token.getType() != IDENTIFIER && token.getType() != SPACE) {
+            size_t nval = lexerInstance->_position.getLocation().range.first - 1;
+            TokenLocation loc = lexerInstance->_position.getLocation();
+            loc.range.first = nval;
+            token.setLocation(loc);
+            if (loc.range.first != 1)
+                lexerInstance->_position.getLocation().range.first++;
+        }
     }
 
-    //    std::cout << token << std::endl;
+    std::cout << token << " ";
+    std::cout << token.getLocation() << std::endl;
+
+
+    //Make sure that token order is correct, last token coordinates
+    //Should be greater than the previous token passed
+    if (!lexerInstance->test_stk.empty()) {
+        assert(token.getLocation() > lexerInstance->test_stk.top().getLocation());
+        lexerInstance->test_stk.pop();
+    }
+
+
+    lexerInstance->test_stk.push(token);
 
     // Token types defined in bison file
     switch (token.getType()) {
@@ -251,9 +284,9 @@ inline bool check_consecutive_backticks(const std::string::iterator &_position,
     return false;
 };
 
-inline void move_itr_bounds(const std::string &input, std::string::iterator &_itr) {
-    if (_itr != input.end()) {
-        _itr++;
+inline void Lexer::move_itr_bounds() {
+    if (_position.getIterator() != input.end()) {
+        ++_position;
     } else {
         return;
     }
@@ -290,7 +323,7 @@ static const std::unordered_map<std::string, TOKEN_TYPE> dataTypeMap = {
         {"char", DATA_TYPE},
         {"void", DATA_TYPE}};
 
-inline Token Lexer::checkKeywordFromMap(
+Token Lexer::checkKeywordFromMap(
         const std::string &keyword,
         const std::unordered_map<std::string, TOKEN_TYPE> &mp) {
     auto it = mp.find(keyword);
@@ -324,13 +357,36 @@ inline bool isNumeric(char ch) { return isdigit(ch); }
 
 std::optional<char> Lexer::peek_next_char() {
 
-    const std::optional<char> next = **_position;
+    const std::optional<char> next = *(++(*_position));// Dereference character beneath incremented iterator(Nice syntax btw)
+    ;
 
     if (next.has_value()) {
         return next.value();
     }
     return std::nullopt;
 }
+
+
+Token Lexer::handle_operator(char current, char next, TOKEN_TYPE current_op, TOKEN_TYPE next_op) {
+    TokenLocation npos = _position.getLocation();
+    auto next_char = peek_next_char();
+
+    Token tok = Token(current_op, std::string(1, current));
+
+    if (next_char.has_value()) {
+        if (next_char.value() == next) {
+            tok = Token(next_op, std::string(1, current) + next);
+            npos.range.second = npos.range.first + 1;
+            tok.setLocation(npos);
+            _position += 2;//Set iterator to next space
+            return tok;
+        }
+    }
+
+    ++_position;
+    return tok;
+}
+
 
 Token Lexer::get_next_token() {
 
@@ -339,47 +395,30 @@ Token Lexer::get_next_token() {
     switch (curr_char) {
 
         case '&': {
-            ++_position;
-            std::optional<char> next = peek_next_char();
-            if (next.has_value() && next.value() == '&') {
-                _position += 2;
-                return Token(OPERATOR_AND, "&&");
-            }
-        }
-            // Im not including bitwise stuff for now
-            return Token(INVALID, "&");
 
-        case '|': {
-            ++_position;
-            auto next = peek_next_char();
-            if (next.has_value() && next.value() == '|') {
-                _position += 2;
-                return Token(OPERATOR_OR, "||");
-            }
+            //            // Im not including bitwise stuff for now
+            //            Token ntoken = handle_operator(curr_char, '&', INVALID, OPERATOR_AND);
+            //            return ntoken;
+
+            return handle_operator(curr_char, '&', INVALID, OPERATOR_AND);
         }
-            return Token(INVALID, "|");
+
+        case '|':
+            // Im not including bitwise stuff for now
+            return handle_operator(curr_char, '|', INVALID, OPERATOR_OR);
 
         case '!': {
-            ++_position;
-            auto next = peek_next_char();
-            if (next.has_value() && next.value() == '=') {
-                _position += 2;
-                return Token(OPERATOR_NOT_EQUALS, "!=");
-            }
+
+            return handle_operator(curr_char, '=', OPERATOR_NEGATION, OPERATOR_NOT_EQUALS);
         }
-            return Token(OPERATOR_NEGATION, "!");
 
         case ';':
             ++_position;
             return Token(LINEBREAK, ";");
 
         case '=': {
-            ++_position;
-            auto next = peek_next_char();
-            if (next.has_value() && next.value() == '=') {
-                _position += 2;
-                return Token(OPERATOR_EQUALS, "==");
-            }
+
+            return handle_operator(curr_char, '=', ASSIGNMENT, OPERATOR_EQUALS);
         }
             return Token(ASSIGNMENT, "=");
 
@@ -414,25 +453,13 @@ Token Lexer::get_next_token() {
             return Token(OPERATOR_PLUS, "+");
 
         case '-': {
-            ++_position;
-            auto next = peek_next_char();
-            if (next.has_value() && next.value() == '>') {
-                ++_position;
-                return Token(ARROW, "->");
-            }
+            return handle_operator(curr_char, '>', OPERATOR_MINUS, ARROW);
         }
-            return Token(OPERATOR_MINUS, "-");
 
         case ':': {
 
-            ++_position;
-            auto next = peek_next_char();
-            if (next.has_value() && next.value() == '=') {
-                ++_position;
-                return Token(RANGE_INCLUSIVE, ":=");
-            }
+            return handle_operator(curr_char, '=', COLON, RANGE_INCLUSIVE);
         }
-            return Token(COLON, ":");
 
         case '.':
             ++_position;
@@ -469,27 +496,11 @@ Token Lexer::get_next_token() {
             // comparision stuff
 
         case '<': {
-            ++_position;
-            auto next = peek_next_char();
-            if (next.has_value()) {
-                if (next == '=') {
-                    ++_position;
-                    return Token(OPERATOR_LESS_THAN_EQUALS, "<=");
-                }
-            }
-            return Token(OPERATOR_LESS_THAN, "<");
+            return handle_operator(curr_char, '=', OPERATOR_LESS_THAN, OPERATOR_LESS_THAN_EQUALS);
         }
 
         case '>': {
-            ++_position;
-            auto next = peek_next_char();
-            if (next.has_value()) {
-                if (next == '=') {
-                    ++_position;
-                    return Token(OPERATOR_GREATER_THAN_EQUALS, ">=");
-                }
-            }
-            return Token(OPERATOR_GREATER_THAN, ">");
+            return handle_operator(curr_char, '=', OPERATOR_GREATER_THAN, OPERATOR_GREATER_THAN_EQUALS);
         }
 
         case ' ':
@@ -541,8 +552,11 @@ Token Lexer::get_next_token() {
 
             // Move iterator to avoid finding the current char
 
-            move_itr_bounds(input, *_position);
             std::string::iterator old_pos = *_position;
+            TokenLocation npos = _position.getLocation();
+            move_itr_bounds();
+
+
 
             // find closing pair
             auto closing_match = std::find(*_position, input.end(), '"');
@@ -551,16 +565,27 @@ Token Lexer::get_next_token() {
                 // I need to move closing_match since it will set the char again in a
                 // quote, causing this function to be called more than once!
 
-                move_itr_bounds(input, closing_match);
-                _position = closing_match;// -1 so we return the character, not the quote
+                move_itr_bounds();
+                _position = closing_match;
+                npos.range.second = npos.range.first + std::string(old_pos, closing_match).size();
+                //Despite the coordinates tracking the whole string including quotes
+                //The value we care about is the Inner chars only
+                Token tok = Token(STRING, std::string{old_pos  + 1, *_position});
+                tok.setLocation(npos);
 
-                return Token(STRING, std::string{old_pos, *_position - 1});
+                //Current pos is the closing quote
+                //Move iterator to avoid finding the closing quote
+                move_itr_bounds();
+
+                return tok;
             }
 
             ++_position;
             return Token(INVALID, "\0");
         }
 
+                  //TODO: Heavily refactor this part of the code, 
+                  //      it's a mess and it's hard to read
         default:
 
             // In case is variable
@@ -570,10 +595,13 @@ Token Lexer::get_next_token() {
                 // We'll keep moving our iterator until we find something that
                 // is not alphabetic: @number=32;
 
+
                 std::string::iterator old_pos = *_position;
+                TokenLocation npos = _position.getLocation();
 
                 // Move itr to avoid lexing '@'
-                move_itr_bounds(input, *_position);
+                move_itr_bounds();
+
 
                 if (old_pos == *_position || *_position == input.end() ||
                     **_position == '@') {
@@ -589,10 +617,17 @@ Token Lexer::get_next_token() {
 
                 // word found could be a Pourer keyword
                 _position = buffer;
-                return Token(IDENTIFIER, identifier);
+                npos.range.second = npos.range.first + identifier.size();
+
+                Token tok = Token(IDENTIFIER, identifier);
+                tok.setLocation(npos);
+
+                return tok;
                 // update current position
             } else if (isNumeric(curr_char)) {
 
+                std::string::iterator old_pos = *_position;
+                TokenLocation npos = _position.getLocation();
 
                 auto buffer = std::find_if_not(*_position, input.end(), [&](char ch) {
                     return isNumeric(ch) || ch == '.';
@@ -606,25 +641,26 @@ Token Lexer::get_next_token() {
                 } else if (dotcnt == 1) {
 
                     Token tok = Token(DOUBLE, std::string{*_position, buffer});
+
                     _position = buffer;
+                    npos.range.second = npos.range.first + tok.getValue().size() - 1;
+                    tok.setLocation(npos);
                     return tok;
                 }
 
                 std::string number = {*_position, buffer};
+                Token tok = Token(NUMBER, number);
+
                 _position = buffer;
-                return Token(NUMBER, number);
+                npos.range.second = npos.range.first + number.size() - 1;
+                tok.setLocation(npos);
+                return tok;
+
             } else if (isalnum(curr_char)) {// token could potentially be a keyword
 
                 const auto buffer = std::find_if_not(*_position, input.end(), isalnum);
-
-                //Copy iterator to get end of word to determing range( a bit costly, Im aware)
-                IteratorInterface it_limit{_position};
-                it_limit = buffer - 1;// -1 Since we want the exact location of the last char of the word
-                                      // Consider that buffer points to the first non alphanum char
-
-                _position.getLocation().range.second = it_limit.getLocation().range.first;
-                assert(_position.getLocation().range.second.has_value() &&//-> not sure if this assertion is necessary at all
-                       _position.getLocation().range.second >= _position.getLocation().range.first && "Invalid range assignment");
+                std::string::iterator old_pos = *_position;
+                TokenLocation npos = _position.getLocation();
 
                 const std::string word = {*_position, buffer};
 
@@ -632,20 +668,30 @@ Token Lexer::get_next_token() {
                 Token tok = checkKeywordFromMap(word, keywordMap);
 
                 if (tok.getType() != INVALID) {
+
+                    //FIXME: Returning tok  directly does not return the item as is!
+                    Token tk = tok;
+                    _position = buffer;
+                    npos.range.second = npos.range.first + word.size() - 1;
+                    tk.setLocation(npos);
+
+                    return tk;
+                } else {
+                    //Check if word is a data type
+                    Token tok = checkKeywordFromMap(word, dataTypeMap);
                     _position = buffer;
 
-                    return tok;
-                } else {
-                    tok = checkKeywordFromMap(word, dataTypeMap);
-
                     if (tok.getType() != INVALID) {
-                        // not very efficient, I know
-                        _position = buffer;
-                        return Token(DATA_TYPE, tok.getValue());
+                        npos.range.second = npos.range.first + word.size() - 1;
+                        tok.setLocation(npos);
+                        return tok;
                     }
+
+                    npos.range.second = npos.range.first + word.size() - 1;
+                    tok.setLocation(npos);
+                    return tok;
                 }
 
-                return Token(INVALID, "\0");
             }
             //            break;
             // token could be a keyword

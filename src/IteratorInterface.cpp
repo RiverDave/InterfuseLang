@@ -3,11 +3,11 @@
 
 //TODO: Implement exceptions on failures
 
-void IteratorInterface::setInput(std::string& input) {
+void IteratorWrapper::setInput(std::string& input) {
     pos = input.begin();
 }
 
-IteratorInterface &IteratorInterface::operator++() {
+IteratorWrapper &IteratorWrapper::operator++() {
 
     if (*pos == '\n') {
         // std::cout << "New line" << std::endl;
@@ -22,7 +22,7 @@ IteratorInterface &IteratorInterface::operator++() {
     return *this;
 }
 
-IteratorInterface &IteratorInterface::operator+=(const int &other) {
+IteratorWrapper &IteratorWrapper::operator+=(const int &other) {
     int val = other;
 
     while (val--)
@@ -31,7 +31,7 @@ IteratorInterface &IteratorInterface::operator+=(const int &other) {
     return *this;
 }
 
-IteratorInterface &IteratorInterface::operator=(const std::string::iterator &other) {
+IteratorWrapper &IteratorWrapper::operator=(const std::string::iterator &other) {
     assert(other >= pos);
 
     while (pos != other)
@@ -40,7 +40,7 @@ IteratorInterface &IteratorInterface::operator=(const std::string::iterator &oth
     return *this;
 }
 
-std::string::iterator &IteratorInterface::operator*() {
+std::string::iterator &IteratorWrapper::operator*() {
 //    assert(*pos != '\0' && "Invalid char in iterator");
     return pos;
 }

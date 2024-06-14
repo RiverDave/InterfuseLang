@@ -1,5 +1,2 @@
-ajaj
-
-
-
-
+@a : str = "Hello World";
+@puts(@a);

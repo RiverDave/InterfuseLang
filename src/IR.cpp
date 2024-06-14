@@ -700,7 +700,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
         context.blocks.top()->return_value = generatedFnCode;//Innecessary for now
 
         bool hasReturnInst = false;
-        //TODO: If a function contains multiple blocks based on control flow statements
+        //NOTE: If a function contains multiple blocks based on control flow statements
         // the last block does not necessarily need contain a return statement
         // if there's a return statement on both if else blocks. this is very
         // specific but is a thing to consider.(Control flow analysis)
@@ -1074,7 +1074,7 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     assert(context.blocks.top()->parent);
 
     //emit loop body
-    bool break_loop = false;
+    // bool break_loop = false;
 
     Value *last = nullptr;
     for (auto stmt: loopBlock->statements) {

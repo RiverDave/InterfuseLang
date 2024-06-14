@@ -1,6 +1,6 @@
 %{ 
 
-    #include "Lexer.h"
+    #include "../include/Lexer.h"
 
 
 //To be accessed in the lexer 
@@ -111,19 +111,25 @@ stmts:
         $1->statements.push_back($<stmt>2);
      } |
 
-    stmts block
-    {
-        $$ = $<stmts>1;
-        $$ = $<block>2;
-    } | 
+      stmts error TKLINEBREAK
+      {
+        yyerror("Invalid Statement 1");
+        yyerror;
+      } |
 
-    block
-    {
+      stmts block
+      {
+          $$ = $<stmts>1;
+          $$ = $<block>2;
+      } | 
 
-    /* empty */
+      block
+      {
 
-    }
-     ;
+      /* empty */
+
+      }
+       ;
 
 stmt:
 
@@ -140,6 +146,13 @@ stmt:
     TKRETURN expr 
     {
         $$ = new NReturnStatement($<expr>2);
+    } |
+
+    TKRETURN error 
+    {
+    yyerror("Expected expression after return");
+    yyerror;
+
     } |
 
     TKRETURN
@@ -171,6 +184,13 @@ stmt:
     {
         $$ = new NContinueStatement();
     }
+//    |
+//
+ //   error
+   // {
+     //   yyerror("Invalid Statement 2");
+       // yyerror;
+   // }
     ;
 
 id : TKIDENTIFIER
