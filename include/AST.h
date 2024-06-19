@@ -140,11 +140,11 @@ public:
 
 class NBinaryOperator : public NExpression {
 public:
-    NExpression &lhs;
-    Token &op;// doubtful 'bout this
-    NExpression &rhs;
+    NExpression *lhs;
+    Token *op;// doubtful 'bout this
+    NExpression *rhs;
 
-    explicit NBinaryOperator(NExpression &lhs, Token &op, NExpression &rhs)
+    explicit NBinaryOperator(NExpression *lhs, Token *op, NExpression *rhs)
         : lhs(lhs), op(op), rhs(rhs) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
@@ -152,10 +152,10 @@ public:
 
 class NUnaryOperator : public NExpression {
 public:
-    Token &op;
-    NExpression &operand;
+    Token *op;
+    NExpression *operand;
 
-    explicit NUnaryOperator(Token &op, NExpression &operand)
+    explicit NUnaryOperator(Token *op, NExpression *operand)
         : op(op), operand(operand) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
@@ -202,9 +202,9 @@ public:
 class NAssignment : public NExpression {
 
 public:
-    NIdentifier &lhs;
-    NExpression &rhs;
-    NAssignment(NIdentifier &id, NExpression &assignmentExpr)
+    NIdentifier *lhs;
+    NExpression *rhs;
+    NAssignment(NIdentifier *id, NExpression *assignmentExpr)
         : lhs(id), rhs(assignmentExpr) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;

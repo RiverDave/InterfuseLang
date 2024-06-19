@@ -1,2 +1,1 @@
-@a : str = "Hello World";
-@puts(@a);
+@a : int = 23;

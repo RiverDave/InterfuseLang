@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -92,6 +93,7 @@ enum TOKEN_TYPE {
     DATA_TYPE_FLOAT,
 
     T_EOF,// Denotes end of file
+
 };
 
 struct TokenLocation {
@@ -140,7 +142,7 @@ public:
                    TokenLocation loc)
         : type(TokenType), value(val), location(loc) {}
 
-    Token(const Token &other) : type(other.type), value(other.value) {}
+    Token(const Token &other) : type(other.type), value(other.value), location(other.location) {}
 
     Token &operator=(const Token &other) {
         if (this != &other) {
@@ -148,6 +150,9 @@ public:
             type = other.type;
             value = other.value;
             location = other.location;
+
+            location.range.first = other.location.range.first;
+            location.range.second = other.location.range.second;
         }
         return *this;
     }

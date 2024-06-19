@@ -27,6 +27,7 @@ set(SOURCES
             include/internals.hpp
             src/IteratorInterface.cpp
             src/parser.y
+            src/FuseHandler.cpp
 
 )
 

@@ -1,10 +1,12 @@
 #include "AST.h"
 #include "IR.h"
 #include "Lexer.h"
+#include <FuseHandler.h>
 
 extern int yyparse();
 //extern void initializeLexer();
 extern NBlock *programBlock;
+extern FuseHandler fusehandler;
 
 //Path to .fuse file
 const char *_global_file_path;

@@ -11,9 +11,21 @@
 objfile=$(basename "$1" .ll).o
 llc -filetype=obj -o="$objfile" "$1"
 
+# Check if llc command was successful
+if [ $? -ne 0 ]; then
+    echo "Error generating object file from .ll file"
+    rm "$1"
+    exit 1
+fi
+
 
 # generate executable
 clang "$objfile" -o "$2"
+
+if [ $? -ne 0 ]; then
+    echo "clang command failed"
+    exit 1
+fi
 
 
 # Step 4: Run the executable(Not necessary tbh)

@@ -15,7 +15,8 @@ public:
     std::string input;
     IteratorWrapper _position;
     const char *file_name;
-    std::stack<Token> test_stk;
+
+    std::stack<Token> assert_stk;
 
     explicit Lexer(const std::fstream &);
 
@@ -24,6 +25,9 @@ public:
     inline void move_itr_bounds();
 
     Token handle_operator(char current, char next, TOKEN_TYPE current_op, TOKEN_TYPE next_op);
+    Token handle_matched_token(char, char, TOKEN_TYPE, TOKEN_TYPE);
+    Token handle_reversed_matched_token(char, char, TOKEN_TYPE, TOKEN_TYPE);
+
     std::optional<char> peek_next_char();
     [[nodiscard]] Token invalidToken(std::string value = "\0") {
         return Token{INVALID, value, TokenLocation{this->_position.getLocation()}};

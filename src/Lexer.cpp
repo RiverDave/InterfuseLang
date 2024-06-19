@@ -10,12 +10,13 @@
 #include <unordered_map>
 
 #include "../build/parser.hpp"
-#include "AST.h"
+#include "FuseHandler.h"
 
+extern FuseHandler fusehandler;//Declared in BISON file
 
-
-inline void logError(Token &tok, const std::string &msg) {
-    std::cerr << "Error: " << msg << " at " << tok.getLocation() << std::endl;
+inline void logError(Token tok, const std::string &msg) {
+    std::cerr << "INTERFUSE ERROR: " << msg << " at " << tok.getLocation() << std::endl;
+    fusehandler.err_cnt++;
 }
 
 // BISON Interface
@@ -48,36 +49,38 @@ extern "C" int yylex() {
         //Exit lexing process
         if (*lexerInstance->_position == lexerInstance->input.end()) {
 
-            std::cout << "Lexing finished: " << std::endl;
-            std::cout << " Line: " << lexerInstance->_position.getLocation().line << " Col: " << lexerInstance->_position.getLocation().range.first << std::endl;
+            // std::cout << "Lexing finished: " << std::endl;
+            // std::cout << " Line: " << lexerInstance->_position.getLocation().line << " Col: " << lexerInstance->_position.getLocation().range.first << std::endl;
             return 0;
         }
 
         token = lexerInstance->get_next_token();
-        //TODO: FIX THE OFFSET BY 1 & fix this mess of code
+        //TODO: fix this mess of code
         if (token.getValue().size() == 1 && token.getType() != IDENTIFIER && token.getType() != SPACE) {
             size_t nval = lexerInstance->_position.getLocation().range.first - 1;
             TokenLocation loc = lexerInstance->_position.getLocation();
             loc.range.first = nval;
             token.setLocation(loc);
+
+            //Hardcoded af, Need to FIX
             if (loc.range.first != 1)
                 lexerInstance->_position.getLocation().range.first++;
         }
     }
 
-    std::cout << token << " ";
-    std::cout << token.getLocation() << std::endl;
+    // std::cout << token << " ";
+    // std::cout << token.getLocation() << std::endl;
 
 
     //Make sure that token order is correct, last token coordinates
     //Should be greater than the previous token passed
-    if (!lexerInstance->test_stk.empty()) {
-        assert(token.getLocation() > lexerInstance->test_stk.top().getLocation());
-        lexerInstance->test_stk.pop();
+    if (!lexerInstance->assert_stk.empty()) {
+        assert(token.getLocation() > lexerInstance->assert_stk.top().getLocation());
+        lexerInstance->assert_stk.pop();
     }
 
 
-    lexerInstance->test_stk.push(token);
+    lexerInstance->assert_stk.push(token);
 
     // Token types defined in bison file
     switch (token.getType()) {
@@ -239,7 +242,8 @@ extern "C" int yylex() {
 
         case INVALID: {//This should not be necessary for error recovery matters(I think so)
             logError(token, "Invalid token");
-            return EXIT_FAILURE;
+            yylval.token = new Token(token);
+            return TKINVALID;
         }
 
         default:
@@ -388,6 +392,34 @@ Token Lexer::handle_operator(char current, char next, TOKEN_TYPE current_op, TOK
 }
 
 
+//Search closing token forward
+Token Lexer::handle_matched_token(char open_char, char close_char, TOKEN_TYPE open_type, TOKEN_TYPE close_type) {
+
+    auto find = std::find(*_position, input.end(), close_char);
+
+    if (find == input.end()) {
+        logError(Token(INVALID, std::string(1, open_char), _position.getLocation()), std::string{"Unterminated token found"});
+        return Token{CURLY_BRACKET_OPEN, std::string{open_char}};
+    }
+
+    return Token{open_type, std::string{open_char}};
+}
+
+//Search closing token backwards
+Token Lexer::handle_reversed_matched_token(char closing_char, char open_char, TOKEN_TYPE close_type, TOKEN_TYPE open_type) {
+
+    std::string::reverse_iterator rbegin(*_position);
+    std::string::reverse_iterator rend(input.begin());
+    auto find = std::find(rbegin, rend, open_char);
+
+    if (find == rend) {
+        logError(Token(INVALID, std::string(1, closing_char), _position.getLocation()), std::string{"Extraneous token found"});
+        return Token{CURLY_BRACKET_CLOSE, std::string{closing_char}};
+    }
+
+    return Token{close_type, std::string{closing_char}};
+}
+
 Token Lexer::get_next_token() {
 
     // Should be referenced to input
@@ -425,27 +457,27 @@ Token Lexer::get_next_token() {
             // paired tokens (will be checked in parser)
         case '(':
             ++_position;
-            return Token(PARENTHESIS_OPEN, "(");
+            return handle_matched_token('(', ')', PARENTHESIS_OPEN, PARENTHESIS_CLOSE);
 
         case ')':
             ++_position;
-            return Token(PARENTHESIS_CLOSE, ")");
+            return handle_reversed_matched_token(')', '(', PARENTHESIS_CLOSE, PARENTHESIS_OPEN);
 
         case '{':
             ++_position;
-            return Token(CURLY_BRACKET_OPEN, "{");
+            return handle_matched_token('{', '}', CURLY_BRACKET_OPEN, CURLY_BRACKET_CLOSE);
 
         case '}':
             ++_position;
-            return Token(CURLY_BRACKET_CLOSE, "}");
+            return handle_reversed_matched_token('}', '{', CURLY_BRACKET_CLOSE, CURLY_BRACKET_OPEN);
 
         case '[':
             ++_position;
-            return Token(BRACKET_OPEN, "[");
+            return handle_matched_token('[', ']', BRACKET_OPEN, BRACKET_CLOSE);
 
         case ']':
             ++_position;
-            return Token(BRACKET_CLOSE, "]");
+            return handle_reversed_matched_token(']', '[', BRACKET_CLOSE, BRACKET_OPEN);
 
             // arithmetic operators
         case '+':
@@ -557,7 +589,6 @@ Token Lexer::get_next_token() {
             move_itr_bounds();
 
 
-
             // find closing pair
             auto closing_match = std::find(*_position, input.end(), '"');
 
@@ -570,7 +601,7 @@ Token Lexer::get_next_token() {
                 npos.range.second = npos.range.first + std::string(old_pos, closing_match).size();
                 //Despite the coordinates tracking the whole string including quotes
                 //The value we care about is the Inner chars only
-                Token tok = Token(STRING, std::string{old_pos  + 1, *_position});
+                Token tok = Token(STRING, std::string{old_pos + 1, *_position});
                 tok.setLocation(npos);
 
                 //Current pos is the closing quote
@@ -580,12 +611,13 @@ Token Lexer::get_next_token() {
                 return tok;
             }
 
+            logError(Token(INVALID, std::string(1, curr_char), npos), std::string{"Unterminated string found"});
             ++_position;
-            return Token(INVALID, "\0");
+            return Token(INVALID, std::string(1, curr_char));
         }
 
-                  //TODO: Heavily refactor this part of the code, 
-                  //      it's a mess and it's hard to read
+            //TODO: Heavily refactor this part of the code,
+            //      it's a mess and it's hard to read
         default:
 
             // In case is variable
@@ -691,7 +723,6 @@ Token Lexer::get_next_token() {
                     tok.setLocation(npos);
                     return tok;
                 }
-
             }
             //            break;
             // token could be a keyword

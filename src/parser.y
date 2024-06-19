@@ -1,6 +1,10 @@
 %{ 
 
     #include "../include/Lexer.h"
+    #include <FuseHandler.h>
+    #include <iostream>
+    #include <vector>
+    #include <memory>
 
 
 //To be accessed in the lexer 
@@ -8,9 +12,31 @@
 
 //Entry point for the parser(to be called in main by context)
     NBlock *programBlock;
-
+    FuseHandler fusehandler;
     extern int yylex();
-    void yyerror(const char* err){printf("ERROR: %s \n", err);}
+
+    void getErrorCnt(){
+      std::cout << "Aborting... Total Errors: " << fusehandler.err_cnt << std::endl;
+    }
+
+    void yyerror (const char* err, std::vector<std::unique_ptr<Token>> err_tokens = std::vector<std::unique_ptr<Token>>()) {
+
+        if (err_tokens.size() >= 1){
+
+          std::cerr << "INTERFUSE ERROR: " <<  err;
+          TokenLocation err_range = fusehandler.getErrorLocation(std::move(err_tokens));
+          std::cout << " At line: " << err_range << std::endl;
+         }else{
+          fusehandler.err_cnt++;
+          std::cerr << "INTERFUSE Untracked ERROR found -> " <<  err << std::endl;;
+          getErrorCnt();
+
+        }
+
+      fusehandler.err_cnt++;
+    }
+
+
 
 
 %}
@@ -42,9 +68,6 @@
 
 // These are specified in Token.h as well
 
-//%token <token> KEYWORD KEYWORD_IF KEYWORD_ELSE KEYWORD_ELSE_IF KEYWORD_TRUE KEYWORD_FALSE
-//%token <token> KEYWORD_LOOP_FOR KEYWORD_LOOP_DO KEYWORD_LOOP_WHILE 
-//%token <token>  KEYWORD_PROCEDURE KEYWORD_PROVIDE
 %token<token> TKNUMBER TKDOUBLE
 %token<token> TKSTRING
 %token<token> TKPLUS TKMINUS TKMULT TKDIV TKMOD
@@ -54,7 +77,9 @@
 %token<token> TKASSIGNMENT 
 //comparison operators
 %token<token> TKLESS TKGREATER TKLESS_EQUAL TKGREATER_EQUAL TKEQUAL TKNOT_EQUAL
+// Loop stuff
 %token<token> TKAND TKOR
+
 %token<token> TKNEGATION
 
 %token<token> TKIDENTIFIER 
@@ -64,6 +89,7 @@
 %token<token> TKFUNCTION_KEY
 %token<token> TKIF TKELSE TKELSEIF 
 %token<token> TKFOR TKIN TKBREAK TKCONT
+%token<token> TKINVALID
 
 %type<id> id
 %type<varvec> fn_args
@@ -71,13 +97,13 @@
 %type<stmt> stmt var_decl fn_decl if_stmt for_stmt break_stmt continue_stmt
 %type<else_stmt> else_stmt
 
-//%type<for_stmt> for_stmt
 %type<block> program stmts block
 //%type<var_decls> var_decls //not quite sure bout this
-%type<expr> expr numeric string 
-%type<token> comparison negation
+%type<expr> expr numeric string
+%type<token> comparison negation binary_op
 
 
+//Operator precedence
 %left TKPLUS TKMINUS
 %right TKMULT TKDIV TKMOD
 %left TKLESS TKGREATER TKLESS_EQUAL TKGREATER_EQUAL TKEQUAL TKNOT_EQUAL
@@ -102,19 +128,52 @@ stmts:
         //&& since block contains a statement list
         //push the statement into the block !!
         $$ = new NBlock();
-        $$->statements.push_back($<stmt>1);
-     } | 
+        if($<stmt>1 != nullptr)
+        {
+            $$->statements.push_back($<stmt>1);
+        } else if($2 == nullptr){
+          std::vector<std::unique_ptr<Token>> local_error;
+          yyerror("Missing -> ';' Delimiter", std::move(local_error));
+          $$ = nullptr;
+          YYABORT;
+        }
+
+     } |
+
+     stmt
+     {
+        std::vector<std::unique_ptr<Token>> local_error;
+        yyerror("Missing -> ';' Delimiter", std::move(local_error));
+        $$ = nullptr;
+        YYABORT;
+
+     } |
      stmts stmt TKLINEBREAK
      {
         //TODO: Elaborate further this solution(specifically)
         $$ = $<stmts>1;
-        $1->statements.push_back($<stmt>2);
+
+        if($<stmt>2 != nullptr)
+        {
+          $1->statements.push_back($<stmt>2);
+        } else if($2 == nullptr){
+          std::vector<std::unique_ptr<Token>> local_error;
+          yyerror("Missing ; Delimiter", std::move(local_error));
+          $$ = nullptr;
+          getErrorCnt();
+          YYABORT;
+        }
+
+
      } |
 
-      stmts error TKLINEBREAK
+      stmts stmt
       {
-        yyerror("Invalid Statement 1");
-        yyerror;
+        std::vector<std::unique_ptr<Token>> local_error;
+        yyerror("Missing ; Delimiter", std::move(local_error));
+        $$ = nullptr;
+        getErrorCnt();
+        YYABORT;
       } |
 
       stmts block
@@ -131,11 +190,16 @@ stmts:
       }
        ;
 
+
 stmt:
 
     expr
     {
-        $$ = new NExpressionStatement(*$1);
+        if($1 != nullptr)
+        {
+            $$ = new NExpressionStatement(*$1);
+        }
+
     } |
 
     var_decl
@@ -143,16 +207,9 @@ stmt:
         //$$ = $<var_decl>1;
     } |
 
-    TKRETURN expr 
+    TKRETURN expr
     {
         $$ = new NReturnStatement($<expr>2);
-    } |
-
-    TKRETURN error 
-    {
-    yyerror("Expected expression after return");
-    yyerror;
-
     } |
 
     TKRETURN
@@ -184,13 +241,6 @@ stmt:
     {
         $$ = new NContinueStatement();
     }
-//    |
-//
- //   error
-   // {
-     //   yyerror("Invalid Statement 2");
-       // yyerror;
-   // }
     ;
 
 id : TKIDENTIFIER
@@ -204,10 +254,23 @@ var_decl:
 
     TKIDENTIFIER TKCOLON TKDATATYPE TKASSIGNMENT expr
     {
-        NIdentifier* type = new NIdentifier($3->getValue().c_str());
-        NIdentifier* id = new NIdentifier($1->getValue().c_str());
 
-        $$ = new NVariableDeclaration(*type, id, $5);
+        if(!$5){
+          std::vector<std::unique_ptr<Token>> local_error;
+          local_error.push_back(std::make_unique<Token>(*$4));
+          yyerror("Invalid assignment expression to variable declaration", std::move(local_error));
+          $$ = nullptr;
+          getErrorCnt();
+          YYABORT;
+
+        }else{
+          NIdentifier* type = new NIdentifier($3->getValue().c_str());
+          NIdentifier* id = new NIdentifier($1->getValue().c_str());
+          $$ = new NVariableDeclaration(*type, id, $5);
+
+        }
+
+
     } 
 
     |
@@ -225,6 +288,7 @@ var_decl:
 fn_decl:
     TKFUNCTION_KEY id TKPAROPEN fn_args TKPARCLOSE TKARROW TKDATATYPE block
     {
+
         NIdentifier* type = new NIdentifier($7->getValue().c_str());
         $$ = new NFnDeclaration(*$2, *$4, *type, $8);
     } | 
@@ -271,6 +335,7 @@ block :
     } |
     TKCURLYOPEN expr TKCURLYCLOSE
     {
+
         $$ = new NBlock();
         $$->statements.push_back(new NExpressionStatement(*$<expr>2));
     } |
@@ -291,13 +356,33 @@ for_stmt:
     {
 
         $$ = new NForStatement($2, $4, $6, $7);
+    } | 
+    TKFOR  error
+    {
+        std::vector<std::unique_ptr<Token>> local_error;
+        local_error.push_back(std::make_unique<Token>(*$1));
+        yyerror("Incorrect 'for' statement in for loop", std::move(local_error));
+        $$ = nullptr;
+        getErrorCnt();
+        YYABORT;
     }
     ;
 
 if_stmt:
+
     TKIF expr block 
     {
 
+        if(!$2){
+          std::vector<std::unique_ptr<Token>> local_error;
+          local_error.push_back(std::make_unique<Token>(*$1));
+          yyerror("Invalid expression in if statement", std::move(local_error));
+          $$ = nullptr;
+          getErrorCnt();
+          YYABORT;
+
+        }
+        
         $$ = new NIfStatement($<expr>2, $3);
     } |
 
@@ -305,7 +390,8 @@ if_stmt:
     {
         //$$ = new NIfStatement($<expr>2, $3, $4);
         $$ = new NIfStatement($<expr>2, $3, $<else_stmt>4); 
-    }
+    } |
+
     ;
 
 else_stmt:
@@ -336,21 +422,73 @@ continue_stmt:
     TKCONT
     ;
 
+fn_call_args:
+    /* empty */
+    {
+        $$ = new ExpressionList();
+    } |
+    expr
+    {
+        $$ = new ExpressionList();
+        $$->push_back($1);
+    } |
+    fn_call_args TKCOMMA expr
+    {
+        $1->push_back($3);
+    } |
+
+    TKINVALID
+    {
+      std::vector<std::unique_ptr<Token>> local_error;
+      local_error.push_back(std::make_unique<Token>(*$1));
+      yyerror("Invalid Token in function call", std::move(local_error));
+      $$ = nullptr;
+      getErrorCnt();
+      YYABORT;
+    }
+    ;
+
 expr:
+
+    TKINVALID
+    {
+      std::vector<std::unique_ptr<Token>> local_error;
+      local_error.push_back(std::make_unique<Token>(*$1));
+      yyerror("Invalid Token", std::move(local_error));
+      $$ = nullptr;
+    } |
+
+    error 
+    {
+      std::vector<std::unique_ptr<Token>> local_error;
+      yyerror("Invalid expression", std::move(local_error));
+      $$ = nullptr;
+      getErrorCnt();
+      YYABORT;
+
+    } |
 
     id TKASSIGNMENT expr
     {
-    //Should call asignment from ast
-      $$ = new NAssignment(*$1, *$3);
+    if(!$3){
+      std::vector<std::unique_ptr<Token>> local_error;
+      local_error.push_back(std::make_unique<Token>(*$2));
+      yyerror("Invalid assignment expression", std::move(local_error));
+      $$ = nullptr;
+      getErrorCnt();
+      YYABORT;
 
-    } |  
+    }
+      //Should call asignment from ast
+        $$ = new NAssignment($1, $3);
+
+    } |
 
     id TKPAROPEN fn_call_args TKPARCLOSE
     {
-    // fn call basically
     $$ =  new NFnCall(*$<id>1, *$3);
 
-    } |  
+    } |
 
     id
     {
@@ -365,40 +503,21 @@ expr:
 
     string |
 
-    expr TKMULT expr
+    expr binary_op expr
     {
-      $$ = new NBinaryOperator(*$1, *$2, *$3);
-      //delete $2;
+      if(!$1 || !$3)
+      {
+        std::vector<std::unique_ptr<Token>> local_error;
+        local_error.push_back(std::make_unique<Token>(*$2));
+        yyerror("Invalid operand expression", std::move(local_error));
+        $$ = nullptr;
+        getErrorCnt();
+        YYABORT;
 
-    } |
+      } else {
+        $$ = new NBinaryOperator($1, $2, $3);
+      }
 
-    expr TKDIV expr
-    {
-
-      $$ = new NBinaryOperator(*$1, *$2, *$3);
-      //delete $2;
-
-    } | 
-
-    expr TKPLUS expr
-    {
-
-      $$ = new NBinaryOperator(*$1, *$2, *$3);
-      //delete $2;
-
-    } |
-  
-    expr TKMINUS expr
-    {
-
-      $$ = new NBinaryOperator(*$1, *$2, *$3);
-      //delete $2;
-
-    } |
-
-    expr TKMOD expr
-    {
-      $$ = new NBinaryOperator(*$1, *$2, *$3);
       //delete $2;
 
     } |
@@ -411,14 +530,36 @@ expr:
 
     expr comparison expr
     {
-      $$ = new NBinaryOperator(*$1, *$2, *$3);
-      //delete $2;
+
+      if(!$1 || !$3)
+      {
+        std::vector<std::unique_ptr<Token>> local_error;
+        local_error.push_back(std::make_unique<Token>(*$2));
+        yyerror("Invalid operand comparison expression", std::move(local_error));
+        $$ = nullptr;
+        getErrorCnt();
+        YYABORT;
+
+      } else {
+        $$ = new NBinaryOperator($1, $2, $3);
+      }
 
     } |
 
     negation expr
     {
-      $$ = new NUnaryOperator(*$1, *$2);
+      if(!$2)
+      {
+        std::vector<std::unique_ptr<Token>> local_error;
+        local_error.push_back(std::make_unique<Token>(*$1));
+        yyerror("Invalid negation expression", std::move(local_error));
+        $$ = nullptr;
+        getErrorCnt();
+        YYABORT;
+
+      } else {
+        $$ = new NUnaryOperator($1, $2);
+      }
     }
     ;
 
@@ -447,36 +588,32 @@ string:
     }
     ;
 
-fn_call_args:
-    /* empty */
-    {
-        $$ = new ExpressionList();
-    } |
-    expr
-    {
-        $$ = new ExpressionList();
-        $$->push_back($1);
-    } |
-    fn_call_args TKCOMMA expr
-    {
-        $1->push_back($3);
-    }
+
+
+
+binary_op:
+    TKPLUS
+    | TKMINUS
+    | TKMULT
+    | TKDIV
+    | TKMOD
     ;
 
 
 negation : TKNEGATION
     ;
 
-comparison: 
-    TKLESS  
-    | TKGREATER  
-    | TKLESS_EQUAL  
-    | TKGREATER_EQUAL  
-    | TKEQUAL  
-    | TKNOT_EQUAL  
-    | TKAND  
-    | TKOR 
+comparison:
+    TKLESS
+    | TKGREATER
+    | TKLESS_EQUAL
+    | TKGREATER_EQUAL
+    | TKEQUAL
+    | TKNOT_EQUAL
+    | TKAND
+    | TKOR
     ;
+
 
 %%
 

@@ -4,9 +4,11 @@ build/*
 
 .idea/
 .idea/*
+.vscode/
 
 .cache
 .cache/*
+examples/*.ll
 
 include/Parser.hpp
 cmake-build-debug/

@@ -1,5 +1,5 @@
 #include "IR.h"
-#include "../include/internals.hpp"
+#include "internals.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
@@ -113,7 +113,7 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
 
         //Output code if requested
         if (_verbose_mode) {
-          std::cout << "Printing IR code\n";
+            std::cout << "Printing IR code\n";
             TheModule->print(llvm::errs(), nullptr);
         }
 
@@ -327,10 +327,9 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context) {
 
     std::for_each(statements.begin(), statements.end(),
                   [&](NStatement *stmt) {
+
                       last = stmt->codeGen(context);
-                      //                          if (isa<llvm::ReturnInst>(last.value())) {
-                      //                              return;
-                      //                          };
+
                   });
     return last;
 }
@@ -401,10 +400,10 @@ llvm::Type *NIdentifier::getType(CodeGenContext &context) const {
 }
 
 llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
-    TOKEN_TYPE toktype = op.getType();
+    TOKEN_TYPE toktype = op->getType();
 
-    Value *left = lhs.codeGen(context);
-    Value *right = rhs.codeGen(context);
+    Value *left = lhs->codeGen(context);
+    Value *right = rhs->codeGen(context);
 
     if (left->getType()->isDoubleTy() && !right->getType()->isDoubleTy()) {
         left = context.Builder->CreateFPToSI(left,
@@ -593,7 +592,7 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
 }
 
 llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
-    Value *value = rhs.codeGen(context);
+    Value *value = rhs->codeGen(context);
 
     if (value == nullptr) {
         return nullptr;
@@ -605,7 +604,7 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
     }
 
     // check variable existance
-    auto *localData = context.checkLocal(lhs.name, context.blocks.top());
+    auto *localData = context.checkLocal(lhs->name, context.blocks.top());
 
     if (localData) {
 
@@ -613,12 +612,12 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
         return context.Builder->CreateStore(value, localData->allocaSpace);
     }
 
-    auto global = context.globals.find(this->lhs.name);
+    auto global = context.globals.find(this->lhs->name);
 
     if (global != context.globals.end()) {
-        context.globals[lhs.name].val = value;
+        context.globals[lhs->name].val = value;
 
-        auto globalPtr = context.TheModule->getGlobalVariable(lhs.name);
+        auto globalPtr = context.TheModule->getGlobalVariable(lhs->name);
         return context.Builder->CreateStore(value, globalPtr);
     }
 
