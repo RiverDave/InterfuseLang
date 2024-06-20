@@ -1,0 +1,39 @@
+
+fn @fibonacci(@n : int) -> int {
+  if @n <= 1 {
+    ret @n
+  } else {
+    ret @fibonacci(@n - 1) + @fibonacci(@n - 2)
+  }
+  ret 0 # This should not be necessary
+}
+
+fn @factorial(@n : int) -> int {
+  if @n == 0 {
+    ret 1
+  } else {
+    ret @n * @factorial(@n - 1)
+  }
+  ret 0
+}
+
+
+fn @power(@base : int, @exponent : int) -> int {
+  @result : int = 1
+  for @i in @i <= @exponent : @i + 1 {
+    @result = @result * @base
+  }
+  ret @result
+}
+
+@puts("Fibonacci Sequence:  ")
+@fib : int = @fibonacci(10)
+@printf(@fib)
+
+@puts("Factorial Sequence:  ")
+@fac : int = @factorial(20)
+@printf(@fac)
+
+@puts("Power Sequence:  ")
+@a : int = @power(2, 3)
+@printf(@a)

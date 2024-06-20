@@ -16,7 +16,7 @@
     extern int yylex();
 
     void getErrorCnt(){
-      std::cout << "Aborting... Total Errors: " << fusehandler.err_cnt << std::endl;
+      std::cout << "Aborting... Known Errors: " << fusehandler.err_cnt << std::endl;
     }
 
     void yyerror (const char* err, std::vector<std::unique_ptr<Token>> err_tokens = std::vector<std::unique_ptr<Token>>()) {
@@ -27,7 +27,6 @@
           TokenLocation err_range = fusehandler.getErrorLocation(std::move(err_tokens));
           std::cout << " At line: " << err_range << std::endl;
          }else{
-          fusehandler.err_cnt++;
           std::cerr << "INTERFUSE Untracked ERROR found -> " <<  err << std::endl;;
           getErrorCnt();
 
@@ -122,7 +121,7 @@ program:
 
 stmts: 
      //NOTE: This defines our statement delimiter (through ;)
-     stmt TKLINEBREAK
+     stmt 
      {
         //Initialize new block
         //&& since block contains a statement list
@@ -131,24 +130,19 @@ stmts:
         if($<stmt>1 != nullptr)
         {
             $$->statements.push_back($<stmt>1);
-        } else if($2 == nullptr){
-          std::vector<std::unique_ptr<Token>> local_error;
-          yyerror("Missing -> ';' Delimiter", std::move(local_error));
-          $$ = nullptr;
-          YYABORT;
-        }
+        } 
 
      } |
 
-     stmt
+     stmt error
      {
         std::vector<std::unique_ptr<Token>> local_error;
-        yyerror("Missing -> ';' Delimiter", std::move(local_error));
+        yyerror("Error found in statement", std::move(local_error));
         $$ = nullptr;
         YYABORT;
 
      } |
-     stmts stmt TKLINEBREAK
+     stmts stmt 
      {
         //TODO: Elaborate further this solution(specifically)
         $$ = $<stmts>1;
@@ -166,15 +160,6 @@ stmts:
 
 
      } |
-
-      stmts stmt
-      {
-        std::vector<std::unique_ptr<Token>> local_error;
-        yyerror("Missing ; Delimiter", std::move(local_error));
-        $$ = nullptr;
-        getErrorCnt();
-        YYABORT;
-      } |
 
       stmts block
       {

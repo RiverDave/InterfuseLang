@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.26)
-project(pourer)
+project(interfuse)
 find_package(LLVM REQUIRED CONFIG)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
@@ -55,8 +55,8 @@ execute_process(COMMAND llvm-config --libs all
 string(REPLACE "\n" " " llvm_libraries ${llvm_libraries})
 string(STRIP ${llvm_libraries} llvm_libraries)
 
-add_executable(pourer ${SOURCES} ${BISON_MyParser_OUTPUTS})
-target_include_directories(pourer PRIVATE ${INCLUDE_PATH})
+add_executable(interfuse ${SOURCES} ${BISON_MyParser_OUTPUTS})
+target_include_directories(interfuse PRIVATE ${INCLUDE_PATH})
 
 
 # Add compiler flags
@@ -65,5 +65,5 @@ set(LLVM_ENABLE_ASSERTIONS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g")
 
-target_link_libraries(pourer ${llvm_libraries} ${targets})
-target_compile_options(pourer PRIVATE -Wall -Wextra)
+target_link_libraries(interfuse ${llvm_libraries} ${targets})
+target_compile_options(interfuse PRIVATE -Wall -Wextra)

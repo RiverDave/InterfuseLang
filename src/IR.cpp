@@ -327,9 +327,7 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context) {
 
     std::for_each(statements.begin(), statements.end(),
                   [&](NStatement *stmt) {
-
                       last = stmt->codeGen(context);
-
                   });
     return last;
 }
@@ -1094,14 +1092,22 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
             if (!stepVal || stepVal->getType()->isVoidTy()) {
                 return nullptr;
             }
+        } else {
+
+            std::string err = "Invalid for loop iteration expression";
+            LogErrorV(err.c_str());
+            throw std::runtime_error(err);
+            return nullptr;
         }
 
         if (isAlloca) {
+
             //Store step expression into current variabl
             Value *next_val = context.Builder->CreateStore(stepVal, allocInst);
             assert(next_val);
 
         } else {
+            //Store step expression into global var
             Value *next_val = context.Builder->CreateStore(stepVal, gVar);
             assert(next_val);
         }
