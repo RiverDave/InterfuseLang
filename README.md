@@ -59,7 +59,7 @@ fn @my_fn() -> void {
 ```
 
 - A more complex function: 
-```c
+```rust
 
 fn @power(@base : int, @exponent : int) -> int {
   @result : int = 1
@@ -70,6 +70,11 @@ fn @power(@base : int, @exponent : int) -> int {
 }
 
 ```
+
+## Dependencies
+- LLVM
+- CLI11 (used for parsing command line arguments)
+- emcc (Used in the shell script to compile the generated LLVM IR to WebAssembly)
 
 ## How to run(Tested on MacOS)
 
@@ -84,6 +89,13 @@ make
 To compile the program, you can use the following command:
 ```bash
 ./interfuse {path_to_file} {binary_name} # Will generate an executable with the specified binary name
+```
+
+- Flags:
+```bash
+-v # Verbose mode (prints the LLVM IR code)
+-w # Wasm compilation (uses emcc to compile the generated LLVM IR to WebAssembly)
+
 ```
 
 

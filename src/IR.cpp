@@ -25,8 +25,8 @@ using namespace llvm;
 
 extern const char *_global_file_path;
 
-CodeGenContext::CodeGenContext(bool verboseMode, std::string fname, std::string exec_name)
-    : blocks(), _verbose_mode(verboseMode), dump_file_name(fname), binary_name(exec_name) {
+CodeGenContext::CodeGenContext(bool verboseMode, std::string fname, std::string exec_name, bool wasm_mode)
+    : blocks(), _verbose_mode(verboseMode), dump_file_name(fname), binary_name(exec_name), wasm_compilation(wasm_mode) {
     // Init core llvm
     TheContext = std::make_unique<llvm::LLVMContext>();
     TheModule = std::make_unique<llvm::Module>("Pourer", *TheContext);
@@ -201,16 +201,23 @@ int CodeGenContext::dumpIR() {
         errs();
         return EXIT_FAILURE;
     }
+
+    std::string wasm_ext;
+
+    if (wasm_compilation) {
+        wasm_ext = "-w";
+    }
+
     //Dump ir to ll file
     TheModule->print(OS, nullptr);
 
     //Run sh to compile to binary
     std::string cmd = FUSE_RUNNER_PATH;
-    cmd += " " + dump_file_name + " " + binary_name;
+    cmd += " " + dump_file_name + " " + binary_name + " " + wasm_ext;
 
     int result = system(cmd.c_str());//Run sh script
     if (result == -1) {
-        std::cerr << "FUSE: sh command error" << std::endl;
+        std::cerr << "INTERFUSE: sh command error" << std::endl;
         return EXIT_FAILURE;
     }
 

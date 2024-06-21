@@ -8,6 +8,7 @@
 #3. use clangd or gcc to generate binary/executable
 
 
+name=$1
 objfile=$(basename "$1" .ll).o
 llc -filetype=obj -o="$objfile" "$1"
 
@@ -19,12 +20,20 @@ if [ $? -ne 0 ]; then
 fi
 
 
-# generate executable
-clang "$objfile" -o "$2"
-
-if [ $? -ne 0 ]; then
-    echo "clang command failed"
-    exit 1
+# Compile to wasm (if necessary)
+if [ "$3" = "-w" ]; then
+    emcc "$name" -s WASM=1 -o "$2.js"
+    if [ $? -ne 0 ]; then
+        echo "emcc command failed"
+        exit 1
+    fi
+else
+    # Generate executable
+    clang "$objfile" -o "$2"
+    if [ $? -ne 0 ]; then
+        echo "clang command failed"
+        exit 1
+    fi
 fi
 
 
@@ -34,3 +43,5 @@ fi
 #Step 5: Delete the .ll and .o files
 rm "$1"
 rm "$objfile"
+
+echo "INTERFUSE: Compilation successful"

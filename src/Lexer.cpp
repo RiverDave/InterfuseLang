@@ -22,7 +22,7 @@ inline void logError(Token tok, const std::string &msg) {
 // BISON Interface
 extern "C" int yylex() {
     if (!lexerInstance) {
-        if (_global_file_path) {
+        if (!_global_file_path.empty()) {
             lexerInstance = new Lexer(std::fstream(_global_file_path));
         }
     }

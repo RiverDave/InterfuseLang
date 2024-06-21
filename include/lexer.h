@@ -6,7 +6,7 @@
 #include <fstream>
 #include <optional>
 #include <stack>
-extern const char *_global_file_path;
+extern std::string _global_file_path;
 
 
 class Lexer final {

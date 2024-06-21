@@ -1,6 +1,7 @@
 #include "AST.h"
 #include "IR.h"
 #include "Lexer.h"
+#include <CLI11.hpp>//CLI parser
 #include <FuseHandler.h>
 
 extern int yyparse();
@@ -9,53 +10,71 @@ extern NBlock *programBlock;
 extern FuseHandler fusehandler;
 
 //Path to .fuse file
-const char *_global_file_path;
-const char *_binary_name;
+std::string _global_file_path;
+std::string _binary_name;
+
 
 //TODO: flag that outputs not just the result of the program but also the IR generated llvm code.
-static bool _verbose_mode = true;
+static bool _verbose_mode = false;
+static bool wasm_compilation = false;
 
+
+std::string validate_extension(const std::string &filename) {
+    const std::string &extension = ".fuse";
+    if (filename.length() >= extension.length()) {
+        //Pass lenghts & content
+        if (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension)) {
+            return std::string();// -> Success
+        }
+
+        else
+            return std::string("File must have .fuse extension");
+    }
+
+    return std::string("File must have .fuse extension");
+};
 
 int main(int argc, char **argv) {
 
-    if (argc != 3) {
-        std::cerr << "No input file or binary name provided" << std::endl;
-        exit(1);
-    } else {
+    //TODO: Figure out this thing
+    CLI::App app{"Fuse experimental Compiler"};
+    argv = app.ensure_utf8(argv);
 
-        //verify that only .fuse files are accepted
-        auto has_extension = [&](const std::string &filename, const std::string &extension) {
-            if (filename.length() >= extension.length()) {
-                //Pass lenghts & content
-                return (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension));
-            }
-
-            return false;
-        };
+    app.add_option("source", _global_file_path, "Path to .fuse file")
+            ->required()
+            ->check(CLI::ExistingFile)
+            ->check(validate_extension);
 
 
-        if (!has_extension(argv[1], ".fuse")) {
+    app.add_flag("-v,--verbose", _verbose_mode, "Toggle Verbose mode");
 
-            std::cerr << "Invalid file extension in file name " << argv[1] << std::endl;
-            exit(1);
-        }
-        _global_file_path = argv[1];
-        assert(argv[1] && "Missing input file in arguments");
-        _binary_name = argv[2];
-        assert(argv[2] && "Missing binary name in arguments");
+    //Wasm flag
+    app.add_flag("-w, --wasm", wasm_compilation, "Generate wasm files");
+
+    app.add_option("binary", _binary_name, "Generated binary name")
+            ->required();
+
+
+    try {
+        CLI11_PARSE(app, argc, argv);
+    } catch (const CLI::ParseError &e) {
+
+        std::cerr << "Caught a parsing error: " << e.what() << std::endl;
+        return app.exit(e);
     }
 
+    std::cout << "Compiling " << _global_file_path << std::endl;
 
     if (yyparse() == 0) {
         try {
 
-            CodeGenContext context(_verbose_mode, _global_file_path, _binary_name);
+            CodeGenContext context(_verbose_mode, _global_file_path, _binary_name, wasm_compilation);
             context.setTargets();
             context.emitIR(*programBlock);
             context.dumpIR();
 
-            if(_verbose_mode)
-              context.runCode();
+            if (_verbose_mode)
+                context.runCode();
 
 
         } catch (const std::runtime_error &e) {
