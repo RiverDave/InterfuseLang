@@ -18,22 +18,6 @@ std::string _binary_name;
 static bool _verbose_mode = false;
 static bool wasm_compilation = false;
 
-
-std::string validate_extension(const std::string &filename) {
-    const std::string &extension = ".fuse";
-    if (filename.length() >= extension.length()) {
-        //Pass lenghts & content
-        if (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension)) {
-            return std::string();// -> Success
-        }
-
-        else
-            return std::string("File must have .fuse extension");
-    }
-
-    return std::string("File must have .fuse extension");
-};
-
 int main(int argc, char **argv) {
 
     //TODO: Figure out this thing
@@ -43,7 +27,21 @@ int main(int argc, char **argv) {
     app.add_option("source", _global_file_path, "Path to .fuse file")
             ->required()
             ->check(CLI::ExistingFile)
-            ->check(validate_extension);
+            ->check([](const std::string &filename) { // -> Custom validator
+
+                const std::string &extension = ".fuse";
+                if (filename.length() >= extension.length()) {
+                    //Pass lenghts & content
+                    if (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension)) {
+                        return std::string();// -> Success
+                    } else {
+
+                        return std::string("File must have .fuse extension");
+                    }
+                }
+
+                return std::string("File must have .fuse extension");
+            });
 
 
     app.add_flag("-v,--verbose", _verbose_mode, "Toggle Verbose mode");
@@ -55,13 +53,7 @@ int main(int argc, char **argv) {
             ->required();
 
 
-    try {
-        CLI11_PARSE(app, argc, argv);
-    } catch (const CLI::ParseError &e) {
-
-        std::cerr << "Caught a parsing error: " << e.what() << std::endl;
-        return app.exit(e);
-    }
+    CLI11_PARSE(app, argc, argv);
 
     std::cout << "Compiling " << _global_file_path << std::endl;
 

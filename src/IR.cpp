@@ -171,7 +171,6 @@ void CodeGenContext::setTargets() {
     LLVMInitializeNativeTarget();
     LLVMInitializeNativeAsmPrinter();
     LLVMInitializeNativeAsmParser();
-    // reason
 
     auto TargetTriple = LLVMGetDefaultTargetTriple();
     TheModule->setTargetTriple(TargetTriple);
@@ -267,6 +266,10 @@ fuseData::varData *CodeGenContext::checkLocal(std::string &id,
 }
 
 llvm::GlobalVariable *CodeGenContext::insertGlobal(std::string &id, llvm::Type *type) {
+    if (type == llvm::Type::getInt8Ty(*TheContext)) {
+        type = type->getPointerTo();
+    }
+
     TheModule->getOrInsertGlobal(id, type);
     GlobalVariable *gval = TheModule->getNamedGlobal(id);
     assert(gval && "Global variable not emitted");
@@ -313,6 +316,11 @@ CodeGenContext::getOuterVars() {
 llvm::AllocaInst *CodeGenContext::insertMemOnFnBlock(llvm::Function *fn,
                                                      std::string &id,
                                                      llvm::Type *type) {
+
+    if (type == llvm::Type::getInt8Ty(*TheContext)) {
+        type = type->getPointerTo();
+    }
+
     if (Builder->GetInsertBlock() == nullptr && fn != nullptr) {
         // std::cout << "FN has no insertBLock" << std::endl;
         // Insert at the beginning of the function
@@ -362,6 +370,7 @@ llvm::Value *NIdentifier::codeGen(CodeGenContext &context) {
     if (id && id->allocaSpace) {
         // Load variable from the stack
         return context.Builder->CreateLoad(id->allocaSpace->getAllocatedType(), id->allocaSpace, name.c_str());
+        // return id->allocaSpace;
     }
 
     auto global = context.globals.find(this->name);
@@ -370,13 +379,13 @@ llvm::Value *NIdentifier::codeGen(CodeGenContext &context) {
 
         //Global var ptr
         auto gptr = context.TheModule->getGlobalVariable(name);
-        return context.Builder->CreateLoad(global->second.type, gptr, name.c_str());
+        //        return gptr;
+        return context.Builder->CreateLoad(global->second.val->getType(), gptr, name.c_str());
     }
 
     std::string err = "Variable not found! " + this->name;
     LogErrorV(err.c_str());
     throw std::runtime_error(err);
-    return nullptr;
 }
 
 llvm::Type *NIdentifier::getType(CodeGenContext &context) const {
@@ -389,7 +398,6 @@ llvm::Type *NIdentifier::getType(CodeGenContext &context) const {
             {"float", llvm::Type::getFloatTy(*context.TheContext)},//Not supported at all
             {"void", llvm::Type::getVoidTy(*context.TheContext)}
             //{"bool", llvm::Type::getInt64Ty(*context.TheContext)},
-            //{"int", llvm::Type::getInt64Ty(*context.TheContext)},
     };
 
     auto it = typeMap.find(name);
@@ -410,14 +418,18 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
     Value *left = lhs->codeGen(context);
     Value *right = rhs->codeGen(context);
 
-    if (left->getType()->isDoubleTy() && !right->getType()->isDoubleTy()) {
-        left = context.Builder->CreateFPToSI(left,
-                                             llvm::Type::getInt64Ty(*context.TheContext), "conv");
-    } else if (right->getType()->isDoubleTy() && !left->getType()->isDoubleTy()) {
+    //All operations are done on doubles if one of the operands is a double, to avoid loss of precision
 
-        left = context.Builder->CreateFPToSI(right,
-                                             llvm::Type::getInt64Ty(*context.TheContext), "conv");
+    if (left->getType()->isIntegerTy(64) && right->getType()->isDoubleTy()) {
+        left = context.Builder->CreateSIToFP(left, llvm::Type::getDoubleTy(*context.TheContext), "intToFloat");
     }
+
+    if (right->getType()->isIntegerTy(64) && left->getType()->isDoubleTy()) {
+        right = context.Builder->CreateSIToFP(right, llvm::Type::getDoubleTy(*context.TheContext), "intToFloat");
+        assert(left->getType()->isDoubleTy() && right->getType()->isDoubleTy() && "Invalid types");
+    }
+
+    bool double_op = left->getType()->isDoubleTy() && right->getType()->isDoubleTy();
 
 
     if (right->getType()->isIntegerTy(1)) {// Check if right is a boolean
@@ -427,73 +439,94 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context) {
     if (left->getType()->isIntegerTy(1)) {// Check if left is a boolean
         left = context.Builder->CreateZExt(left, llvm::Type::getInt64Ty(*context.TheContext), "booltoint");
     }
+
     switch (toktype) {
 
         case OPERATOR_PLUS:
-            return context.Builder->CreateAdd(left,
-                                              right, "tempadd");
+            // Additions are called differently for integers and doubles
+            if (double_op)
+                return context.Builder->CreateFAdd(left,
+                                                   right, "tempfadd");
+            else
+                return context.Builder->CreateAdd(left,
+                                                  right, "tempadd");
         case OPERATOR_MINUS:
-            // std::cout << "Creating subtraction :" << std::endl;
-            return context.Builder->CreateSub(left,
-                                              right, "tempsub");
 
+            if (double_op)
+                return context.Builder->CreateFSub(left,
+                                                   right, "tempfsub");
+            else
+                return context.Builder->CreateSub(left,
+                                                  right, "tempsub");
         case OPERATOR_DIVIDE:
-            // std::cout << "Creating division :" << std::endl;
-            return context.Builder->CreateSDiv(left,
-                                               right, "tempdiv");
+
+            if (double_op)
+                return context.Builder->CreateFDiv(left,
+                                                   right, "tempfdiv");
+            else
+                return context.Builder->CreateSDiv(left, right, "tempdiv");
 
         case OPERATOR_MULTIPLY:
-            // std::cout << "Creating multiplication :" << std::endl;
-            return context.Builder->CreateMul(left,
-                                              right, "tempmul");
-
-        case OPERATOR_NOT_EQUALS:
-            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
-                return context.Builder->CreateFCmpONE(left,
-                                                      right, "tempne");
-
-            return context.Builder->CreateICmpNE(left,
-                                                 right, "tempne");
-        case OPERATOR_EQUALS:
-            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
-                return context.Builder->CreateFCmpOEQ(left,
-                                                      right, "tempne");
-            return context.Builder->CreateICmpEQ(left,
-                                                 right, "tempeq");
-        case OPERATOR_GREATER_THAN:
-            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
-                return context.Builder->CreateFCmpOGT(left,
-                                                      right, "tempne");
-
-            return context.Builder->CreateICmpSGT(left,
-                                                  right, "tempgt");
-
-        case OPERATOR_LESS_THAN:
-            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
-                return context.Builder->CreateFCmpOLT(left,
-                                                      right, "tempne");
-
-            return context.Builder->CreateICmpSLT(left, right, "templ");
-        case OPERATOR_GREATER_THAN_EQUALS:
-            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
-                return context.Builder->CreateFCmpOGE(left,
-                                                      right, "tempne");
-
-            return context.Builder->CreateICmpSGE(left,
-                                                  right, "tempgte");
-        case OPERATOR_LESS_THAN_EQUALS:
-            if (left->getType()->isDoubleTy() && right->getType()->isDoubleTy())
-                return context.Builder->CreateFCmpOLE(left,
-                                                      right, "tempne");
-            return context.Builder->CreateICmpSLE(left,
-                                                  right, "temple");
+            if (double_op)
+                return context.Builder->CreateFMul(left,
+                                                   right, "tempfmul");
+            else
+                return context.Builder->CreateMul(left, right, "tempmul");
 
         case OPERATOR_MODULO:
-            return context.Builder->CreateSRem(left,
-                                               right, "tempmod");
+            if (double_op)
+                return context.Builder->CreateFRem(left,
+                                                   right, "tempfrem");
+            else
+                return context.Builder->CreateSRem(left, right, "temprem");
 
+        case OPERATOR_NOT_EQUALS:
+            if (double_op)
+                return context.Builder->CreateFCmpONE(left,
+                                                      right, "tempfne");
+            else
+                return context.Builder->CreateICmpNE(left,
+                                                     right, "tempne");
+        case OPERATOR_EQUALS:
+            if (double_op)
+                return context.Builder->CreateFCmpOEQ(left,
+                                                      right, "tempfeq");
+            else
+                return context.Builder->CreateICmpEQ(left,
+                                                     right, "tempeq");
+        case OPERATOR_GREATER_THAN:
+            if (double_op)
+                return context.Builder->CreateFCmpOGT(left,
+                                                      right, "tempfgt");
+            else
+                return context.Builder->CreateICmpSGT(left,
+                                                      right, "tempgt");
+
+        case OPERATOR_LESS_THAN:
+            if (double_op)
+                return context.Builder->CreateFCmpOLT(left,
+                                                      right, "tempflt");
+            else
+                return context.Builder->CreateICmpSLT(left,
+                                                      right, "templt");
+
+        case OPERATOR_GREATER_THAN_EQUALS:
+            if (double_op)
+                return context.Builder->CreateFCmpOGE(left,
+                                                      right, "tempfgte");
+            else
+                return context.Builder->CreateICmpSGE(left,
+                                                      right, "tempgte");
+
+        case OPERATOR_LESS_THAN_EQUALS:
+            if (double_op)
+                return context.Builder->CreateFCmpOLE(left,
+                                                      right, "tempfgte");
+            else
+                return context.Builder->CreateICmpSLE(left,
+                                                      right, "tempgte");
         default:
-            LogErrorV("Invalid binary op");
+            LogErrorV("Invalid binary op, might not be supported yet");
     }
     return nullptr;
 }
@@ -522,6 +555,7 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
     auto find = context.blocks.top()->locals.find(id->name);
 
     Type *varType = this->type.getType(context);
+    assert(varType);
 
     if (varType->isVoidTy()) {
         std::string err = "invalid Data type for variables " + this->id->name;
@@ -529,7 +563,6 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
         throw std::runtime_error(err);
     }
 
-    assert(varType);
     // auto local = context.checkLocal(this->id->name, context.blocks.top());
 
     if (find == context.blocks.top()->locals.end()) {
@@ -540,12 +573,6 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
             //This returns a global Variable obj
             gVar = reinterpret_cast<GlobalVariable *>(context.insertGlobal(this->id->name, this->type.getType(context)));
 
-            if (!gVar) {
-                std::string err{"Error inserting global variable"};
-                LogErrorV(err.c_str());
-                throw std::runtime_error(err);
-            }
-
             context.globals[id->name] = fuseData::globalInfo{nullptr, varType};
 
             //var declared in an inner scope, allocate variable on the stack
@@ -555,7 +582,6 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
             context.blocks.top()->locals[id->name].allocaSpace = alloc;
         }
 
-        // std::cout << "Creating variable declaration: " << id->name << std::endl;
     } else {
         // Variable redefinition in the same scope detected, prevent allocation
 
@@ -571,6 +597,10 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
     } else {
         //Emit assignment IR
         assignedVal = assignmentExpr->codeGen(context);
+        if (assignedVal->getType() == llvm::Type::getDoubleTy(*context.TheContext) && varType == llvm::Type::getInt64Ty(*context.TheContext)) {
+            //Convert int to double if necessary
+            assignedVal = context.Builder->CreateFPToSI(assignedVal, varType);
+        }
 
         if (alloc) {
 
@@ -634,47 +664,48 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
 //TODO: Variables declared on the main block, Should be global variables
 llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
     // Prototype generation:
-    if (Function *existingFn = context.TheModule->getFunction(id.name)) {
-        std::string err = "Function '" + id.name + "' already exists";
+    Function *fn = context.TheModule->getFunction(id.name);
+
+    if (!fn) {
+        std::vector<Type *> argTypes;
+        std::for_each(
+                params.begin(), params.end(), [&](NVariableDeclaration *var_decl) {
+                    argTypes.push_back(var_decl->type.getType(context));
+
+                    if (var_decl->type.getType(context)->isVoidTy()) {
+                        std::string err =
+                                "Invalid data type for function parameter " + var_decl->id->name;
+                        LogErrorV(err.c_str());
+                        throw std::runtime_error(err);
+                    }
+                });
+
+        Type *fnRetType = this->retType.getType(context);
+
+        if (!fnRetType) {
+            std::string err = "Unknown fn return type";
+            LogErrorV(err.c_str());
+            throw std::runtime_error(err);
+        }
+
+        llvm::FunctionType *FT = FunctionType::get(fnRetType, argTypes, false);
+
+        fn = Function::Create(FT, GlobalValue::ExternalLinkage, id.name,
+                              context.TheModule.get());
+        assert(fn && "Fn instance not created");
+
+        //Define this early to allow recursive calls
+        context.globals[this->id.name] =
+                fuseData::globalInfo{fn, this->retType.getType(context), fn->getFunctionType()};
+    } else if (fn && !fn->empty()) {
+        std::string err = "Function '" + id.name + "' already exists and it is defined";
         LogErrorV(err.c_str());
         throw std::runtime_error(err);
     }
-
-    std::vector<Type *> argTypes;
-    std::for_each(
-            params.begin(), params.end(), [&](NVariableDeclaration *var_decl) {
-                argTypes.push_back(var_decl->type.getType(context));
-
-                if (var_decl->type.getType(context)->isVoidTy()) {
-                    std::string err =
-                            "Invalid data type for function parameter " + var_decl->id->name;
-                    LogErrorV(err.c_str());
-                    throw std::runtime_error(err);
-                }
-            });
-
-    Type *fnRetType = this->retType.getType(context);
-
-    if (!fnRetType) {
-        std::string err = "Unknown fn return type";
-        LogErrorV(err.c_str());
-        throw std::runtime_error(err);
-    }
-
-    llvm::FunctionType *FT = FunctionType::get(fnRetType, argTypes, false);
-
-    Function *fn = Function::Create(FT, GlobalValue::ExternalLinkage, id.name,
-                                    context.TheModule.get());
-    assert(fn);
-
-    //Define this early to allow recursive calls
-    context.globals[this->id.name] =
-            fuseData::globalInfo{fn, this->retType.getType(context), fn->getFunctionType()};
 
 
     // Function was defined(has block)
-    if (fnBlock) {
-
+    if (fnBlock && fn) {
         size_t i = 0;
         for (auto &arg: fn->args()) {
             arg.setName(params[i++]->id->name);
@@ -798,12 +829,21 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
     // Check if Fn was defined
     Function *fn = context.TheModule->getFunction(id.name);
 
-    if (fn && find != context.globals.end()) {
+    if (fn && find != context.globals.end()) {// -> Only defined functions shall be called
 
         //Really hard coded for now, but will improve later(to support chained strings etc...)
         if (this->arguments.size() == 1 && fn->getName() == "printf") {
-            llvm::CallInst *call = createOutCall(context, this->arguments[0]->codeGen(context));
+            //Call to C's stdlib functions
+            auto val = this->arguments[0]->codeGen(context);
+            llvm::CallInst *call = createOutCall(context, val);
             return call;
+        }
+
+        if (fn->empty() && !find->second.isCwrapper) {//C functions are marked as empty functions in llvm
+                                                      //So we check for the flag
+            std::string err = "Prototype found for Function " + this->id.name + " but not defined";
+            LogErrorV(err.c_str());
+            throw std::runtime_error(err);
         }
 
         std::vector<Value *> args;
@@ -815,10 +855,25 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
                 Type *paramType = fn->args().begin()[i].getType();
 
 
-                assert(V->getType() == paramType && "Argument type mismatch");
-                Value *bitcastedArg =
-                        context.Builder->CreateBitCast(V, paramType);// thanks bolt!
-                args.push_back(bitcastedArg);
+                V->getType()->print(llvm::errs());
+                paramType->print(llvm::errs());
+                std::cout << std::endl;
+
+                if (V->getType() != paramType) {
+
+                    std::string err =
+                            "Argument type mismatch in Function: " + this->id.name + "\n";
+                    LogErrorV(err.c_str());
+                    throw std::runtime_error(err);
+                }
+                if (fn->getName() == "puts") {
+                    args.push_back(V);
+                } else {
+                    Value *bitcastedArg =
+                            context.Builder->CreateBitCast(V, paramType);// thanks bolt!
+                    args.push_back(bitcastedArg);
+                }
+
                 i++;
             }
 
@@ -828,7 +883,6 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
             LogErrorV(err.c_str());
             throw std::runtime_error(err);
         }
-
 
         auto isVoid = fn->getReturnType()->isVoidTy();
 
@@ -842,7 +896,7 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
 
     } else {
 
-        std::string err = "Function " + this->id.name + " not found";
+        std::string err = "Function " + this->id.name + " not found or not defined";
         LogErrorV(err.c_str());
         throw std::runtime_error(err);
     }
@@ -865,7 +919,7 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
 
         vcond = context.Builder->CreateFCmpONE(vcond, ConstantFP::get(*context.TheContext, APFloat(0.0)), "ifcond");
 
-    } else {//TODO: STR stuff
+    } else {
         std::string err = "Unknown condition type detected";
         LogErrorV(err.c_str());
         throw std::runtime_error(err);
@@ -1075,7 +1129,13 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     //Emit IR
     context.Builder->SetInsertPoint(loopBB);
     context.pushBlock(loopBB, "loopbb");
-    assert(context.blocks.top()->parent);
+    if (!context.blocks.top()->parent) {
+
+        std::string err = "Parent block not found";
+        LogErrorV(err.c_str());
+        throw std::runtime_error(err);
+        return nullptr;
+    }
 
     //emit loop body
     // bool break_loop = false;
@@ -1161,14 +1221,18 @@ llvm::Value *NString::codeGen(CodeGenContext &context) {
     globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
     globalDeclaration->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
+    std::vector<llvm::Constant *> idx;
+    for (auto i = 0u; i < chars.size(); i++) {
+        idx.push_back(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context.TheContext), 0));
+    }
+
+    auto strConstant = llvm::ConstantExpr::getGetElementPtr(
+            stringType,
+            globalDeclaration,
+            idx);
 
     //4. Return a cast to an i8*
     return llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
-
-
-    // auto strval = llvm::ConstantDataArray::getString(*context.TheContext, this->value, true);
-    //
-    // return  strval;
 }
 
 

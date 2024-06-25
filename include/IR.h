@@ -29,7 +29,7 @@
 
 // static std::map<std::string, llvm::Value*> scopeVars;
 
-// NOTE: Some of the code here was referenced from llvm.org
+
 
 llvm::Value *LogErrorV(const char *Str);
 
@@ -39,7 +39,10 @@ namespace fuseData {
         llvm::Value *val;                    //Either a function or global variable ptr
         llvm::Type *type;                    //ret type
         llvm::FunctionType *fnType = nullptr;// if applies
-        //    llvm::GlobalVariable* gvarAddr = nullptr;
+                                             //
+        bool isCwrapper = false; // Flag to check fi function is from the C standard library
+                                 // This is done since C functions are marked as empty in llvm
+                                 // which would ruin the codegen process
     };
 
     // relevant variable information to be inserted
@@ -50,22 +53,6 @@ namespace fuseData {
         llvm::AllocaInst *allocaSpace = nullptr;// Pointer where it is allocated
         llvm::Value *allocaVal = nullptr;       // The actual value it is holding
 
-//        varData(std::string& name, llvm::Type* type, llvm::AllocaInst *allocaSpace = nullptr, llvm::Value* allocaVal = nullptr ){
-//
-//            this->name = name;
-//            this->type = type;
-//            this->allocaSpace = allocaSpace;
-//            this->allocaVal = allocaVal;
-//
-//        }// Pointer where it is allocated
-//        varData(const varData& other){
-//            this->name = other.name;
-//            this->type = other.type;
-//            this->allocaSpace = other.allocaSpace;
-//
-//            assert(this->allocaSpace->getAllocatedType() == other.allocaSpace->getAllocatedType());
-//            this->allocaVal = other.allocaVal;
-//        }
     };
 
 

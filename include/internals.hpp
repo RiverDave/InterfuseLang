@@ -22,7 +22,7 @@ void generateFuseOut(CodeGenContext &context) {
     llvm::Function *fn = context.TheModule->getFunction("printf");
     assert(fn != nullptr && "printf function not found");
 
-    context.globals["printf"] = fuseData::globalInfo{fn, fn->getReturnType(), fn->getFunctionType()};
+    context.globals["printf"] = fuseData::globalInfo{fn, fn->getReturnType(), fn->getFunctionType(), true};
 }
 
 void generateFusePuts(CodeGenContext &context) {
@@ -30,11 +30,7 @@ void generateFusePuts(CodeGenContext &context) {
     llvm::Function *fn = context.TheModule->getFunction("puts");
     assert(fn != nullptr && "puts function not found");
 
-    // std::vector<llvm::Value*>printfArgs;
-    // auto val = context.Builder->CreateGlobalStringPtr(llvm::StringRef("lld%"), ".str", 0, context.TheModule.get() );
-    // printfArgs.push_back(val);
-
-    context.globals["puts"] = fuseData::globalInfo{fn, fn->getReturnType(), fn->getFunctionType()};
+    context.globals["puts"] = fuseData::globalInfo{fn, fn->getReturnType(), fn->getFunctionType(), true};
 }
 
 llvm::CallInst* createOutCall(CodeGenContext &context, llvm::Value *val) {

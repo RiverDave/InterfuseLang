@@ -27,7 +27,8 @@ fn @power(@base : int, @exponent : int) -> int {
 }
 
 @puts("Fibonacci Sequence:  ")
-@fib : int = @fibonacci(10)
+@a : int = 10
+@fib : int = @fibonacci(@a)
 @printf(@fib)
 
 @puts("Factorial Sequence:  ")

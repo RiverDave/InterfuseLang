@@ -1,12 +1,7 @@
-fn @fibonacci(@n : int) -> int {
-  if @n <= 1 {
-    ret @n
-  } else {
-    ret @fibonacci(@n - 1) + @fibonacci(@n - 2)
-  }
-  ret 0
+fn @sum(@a : int, @b : int) -> int {
+    ret @a + @b
 }
 
-@a : int = @fibonacci(10)
-@printf(@a)
+@c : int = @sum(20, 20)
+@printf(@c)
 
