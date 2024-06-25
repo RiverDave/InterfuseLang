@@ -949,11 +949,10 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
 
     context.Builder->SetInsertPoint(ifbb);
     context.pushBlock(ifbb);
-    Value *ifval = nullptr;
 
     //Emit ir for true block
     for (auto &expr: trueBlock->statements) {
-        ifval = expr->codeGen(context);
+        expr->codeGen(context);
     }
 
     ifbb = context.Builder->GetInsertBlock();
@@ -966,7 +965,6 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
     }
 
 
-    Value *elseval = nullptr;
     if (elsebb) {
 
         fn->insert(fn->end(), elsebb);
@@ -977,7 +975,7 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
         //Generate else block
 
         for (auto &stmt: falseBlock->block->statements) {
-            elseval = stmt->codeGen(context);
+            stmt->codeGen(context);
         }
 
         elsebb = context.Builder->GetInsertBlock();
@@ -989,40 +987,20 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context) {
     }
 
 
-    //Update for phi node
     fn->insert(fn->end(), mergebb);
     context.Builder->SetInsertPoint(mergebb);
     context.pushBlock(mergebb);
 
-    //Basically expect an expression of the boolean expression datatype
-    //to terminate the block.
-
-    if (ifval->getType()->isVoidTy() || (elseval && elseval->getType()->isVoidTy()) /* || ifval->getType() != elseval->getType() */) {
-        //Return void
-        context.popBlock();
-        context.blocks.top()->blockWrapper = mergebb;
-        return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*context.TheContext));
-    }
 
     if (earlyReturn) {
 
         context.popBlock();
         context.blocks.top()->blockWrapper = mergebb;
-        return ifval;
-    }
-
-    //NOTE: Don't access this block if there's an early return
-    //It took me fucking days to figure that out...
-    PHINode *PN = context.Builder->CreatePHI(vtype, 2, "iftmp");
-
-    PN->addIncoming(ifval, ifbb);
-    if (elseval) {
-        PN->addIncoming(elseval, elsebb);
+        return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*context.TheContext));
     }
 
     context.popBlock();
-    // return context.Builder->CreateRet(PN);
-    return PN;
+    return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*context.TheContext));
 }
 
 llvm::Value *NWhileStatement::codeGen(CodeGenContext &context) {

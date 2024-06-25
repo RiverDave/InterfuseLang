@@ -1,7 +1,9 @@
-fn @sum(@a : int, @b : int) -> int {
-    ret @a + @b
+fn @if_test(@a : int) -> void {
+
+  
+  ret 100
+
 }
 
-@c : int = @sum(20, 20)
-@printf(@c)
 
+@if_test(11)
