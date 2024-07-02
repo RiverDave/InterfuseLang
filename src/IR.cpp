@@ -87,6 +87,9 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
 
     // Top level block
     std::vector<llvm::Type *> argTypes;
+    argTypes.push_back(llvm::IntegerType::getInt32Ty(*TheContext));                                                     // int argc
+    argTypes.push_back(llvm::PointerType::get(llvm::PointerType::get(llvm::IntegerType::getInt8Ty(*TheContext), 0), 0));// char** argv
+                                                                                                                        //
     llvm::FunctionType *ftype = llvm::FunctionType::get(
             Type::getVoidTy(*TheContext), llvm::ArrayRef(argTypes), false);
 
@@ -153,8 +156,18 @@ llvm::GenericValue CodeGenContext::runCode() {
             throw std::runtime_error(err);
         }
 
-        std::vector<GenericValue> noargs;
-        v = ee->runFunction(ee->FindFunctionNamed("main"), noargs);
+        //supply fn args needs, argc = 0 and argv = NULL
+        std::vector<GenericValue> fnargs;
+
+        GenericValue gvArgc;
+        gvArgc.IntVal = APInt(32, 0);
+        fnargs.push_back(gvArgc);
+
+        GenericValue gvArgv;
+        gvArgv.PointerVal = nullptr;
+        fnargs.push_back(gvArgv);
+
+        v = ee->runFunction(ee->FindFunctionNamed("main"), fnargs);
 
     } catch (const std::exception &e) {
         if (e.what()) {
@@ -172,8 +185,16 @@ void CodeGenContext::setTargets() {
     LLVMInitializeNativeAsmPrinter();
     LLVMInitializeNativeAsmParser();
 
-    auto TargetTriple = LLVMGetDefaultTargetTriple();
-    TheModule->setTargetTriple(TargetTriple);
+
+    if (wasm_compilation) {
+        std::string TargetTripleStr = "wasm32-unknown-unknown-wasm";
+        std::cout << "COMPILING TO WASM " << TargetTripleStr << std::endl;
+        TheModule->setTargetTriple(TargetTripleStr);
+    } else {
+
+        auto TargetTriple = LLVMGetDefaultTargetTriple(); //Should run on every llvm capable system (theorically)
+        TheModule->setTargetTriple(TargetTriple);
+    }
 }
 
 int CodeGenContext::dumpIR() {
@@ -187,7 +208,7 @@ int CodeGenContext::dumpIR() {
         if (pos != std::string::npos) {
             filename = filename.substr(0, pos);
         }
-        filename += ".ll";
+        filename += ".ll";//Append .ll extension
 
         std::cout << filename << std::endl;
     };
@@ -207,7 +228,7 @@ int CodeGenContext::dumpIR() {
         wasm_ext = "-w";
     }
 
-    //Dump ir to ll file
+    //Dump ir to .ll file/ Creates file
     TheModule->print(OS, nullptr);
 
     //Run sh to compile to binary
@@ -855,9 +876,9 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
                 Type *paramType = fn->args().begin()[i].getType();
 
 
-                V->getType()->print(llvm::errs());
-                paramType->print(llvm::errs());
-                std::cout << std::endl;
+                // V->getType()->print(llvm::errs());
+                // paramType->print(llvm::errs());
+                // std::cout << std::endl;
 
                 if (V->getType() != paramType) {
 

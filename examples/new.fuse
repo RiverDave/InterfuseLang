@@ -1,9 +1,6 @@
-fn @if_test(@a : int) -> void {
-
-  
-  ret 100
-
+fn @my_fn(@a : int) -> int {
+  ret @a
 }
 
 
-@if_test(11)
+@my_fn(100)

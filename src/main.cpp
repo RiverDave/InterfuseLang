@@ -3,6 +3,8 @@
 #include "Lexer.h"
 #include <CLI11.hpp>//CLI parser
 #include <FuseHandler.h>
+#include <algorithm>
+#include <iomanip>
 
 extern int yyparse();
 //extern void initializeLexer();
@@ -27,8 +29,7 @@ int main(int argc, char **argv) {
     app.add_option("source", _global_file_path, "Path to .fuse file")
             ->required()
             ->check(CLI::ExistingFile)
-            ->check([](const std::string &filename) { // -> Custom validator
-
+            ->check([](const std::string &filename) {// -> Custom validator, passed as lambda/functor
                 const std::string &extension = ".fuse";
                 if (filename.length() >= extension.length()) {
                     //Pass lenghts & content
@@ -65,8 +66,12 @@ int main(int argc, char **argv) {
             context.emitIR(*programBlock);
             context.dumpIR();
 
-            if (_verbose_mode)
+            if (_verbose_mode) {
+                std::cout << std::endl;
+                std::cout << std::setw(40) << std::string("OUTPUT") << std::endl;
+                std::cout << std::string(80, '=') << std::endl;
                 context.runCode();
+            }
 
 
         } catch (const std::runtime_error &e) {

@@ -3,14 +3,19 @@
 #Set of instructions to simplify the build process of the fuse compiler
 #BASICALLY
 
-#1. Generate .ll file out ouf .fuse
+#1. Generate .ll file out of .fuse
 #2. generate object file(.0) out of the generated .ll file above
 #3. use clangd or gcc to generate binary/executable
+#or
+#4. use emscripten magic to generate wasm file & js wrapper
 
 
 name=$1
-objfile=$(basename "$1" .ll).o
-llc -filetype=obj -o="$objfile" "$1"
+rawname=$(basename "$1" .ll)
+
+objfile_name=$rawname.bc
+# llc -filetype=asm -o="$objfile_name" "$1"
+llvm-as "$1" -o "$rawname.bc"
 
 # Check if llc command was successful
 if [ $? -ne 0 ]; then
@@ -20,16 +25,26 @@ if [ $? -ne 0 ]; then
 fi
 
 
-# Compile to wasm (if necessary)
+# Compile to wasm through emscripten (if necessary)
 if [ "$3" = "-w" ]; then
-    emcc "$name" -s WASM=1 -o "$2.js"
+
+
+    emcc "$objfile_name" -sWASM=1 \
+    -sEXPORTED_FUNCTIONS='["_main"]' \
+    -sEXPORTED_RUNTIME_METHODS='["cwrap", "ccall"]' -sASSERTIONS=1 -sMODULARIZE=1 \
+    -sENVIRONMENT=web -sEXPORT_ES6=1 -o "$2.js" 
+
+    #
+    # wasm-ld "$objfile" -o "$rawname".wasm --no-entry -allow-undefined --export-dynamic
+
     if [ $? -ne 0 ]; then
         echo "emcc command failed"
         exit 1
     fi
+
 else
     # Generate executable
-    clang "$objfile" -o "$2"
+    clang "$objfile_name" -o "$2"
     if [ $? -ne 0 ]; then
         echo "clang command failed"
         exit 1
@@ -37,11 +52,11 @@ else
 fi
 
 
-# Step 4: Run the executable(Not necessary tbh)
+# Run the executable(Not necessary tbh)
 #./output
 
-#Step 5: Delete the .ll and .o files
+#File clean up
 rm "$1"
-rm "$objfile"
+rm "$objfile_name"
 
-echo "INTERFUSE: Compilation successful"
+echo "INTERFUSE: Compilation successful ✅"
