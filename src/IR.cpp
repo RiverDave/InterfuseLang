@@ -35,17 +35,8 @@ CodeGenContext::CodeGenContext(bool verboseMode, std::string fname, std::string 
 
     setTargets();
 
-    auto JITOrErr = llvm::orc::KaleidoscopeJIT::Create();
 
-    if (!JITOrErr) {
-        llvm::errs() << "Failed to create JIT: " << JITOrErr.takeError() << "\n";
-        return;
-    }
 
-    TheJIT = std::move(*JITOrErr);
-    assert(TheJIT && "Failed to create TheJIT");
-
-    TheModule->setDataLayout(TheJIT->getDataLayout());
     Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
     globalFn = nullptr;
     createCoreFunctions(*this);//Generate core functions(printf for now)

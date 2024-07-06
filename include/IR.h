@@ -5,7 +5,6 @@
 #ifndef IR_H
 #define IR_H
 #include "AST.h"
-#include "KaleidoscopeJIT.h"
 #include <llvm/Analysis/CGSCCPassManager.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/IR/IRBuilder.h>
@@ -19,6 +18,7 @@
 #include <llvm/Transforms/Scalar/Reassociate.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+#include <llvm/ExecutionEngine/MCJIT.h>
 
 
 #include <map>
@@ -103,7 +103,6 @@ public:
             globals;// will store Functions & global vaiables
 
     //Optimizations
-    std::unique_ptr<llvm::orc::KaleidoscopeJIT> TheJIT;
     std::unique_ptr<llvm::legacy::FunctionPassManager> TheFPM;
     std::unique_ptr<llvm::LoopAnalysisManager> TheLAM;
     std::unique_ptr<llvm::FunctionAnalysisManager> TheFAM;

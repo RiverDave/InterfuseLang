@@ -71,6 +71,7 @@ int main(int argc, char **argv) {
                 std::cout << std::setw(40) << std::string("OUTPUT") << std::endl;
                 std::cout << std::string(80, '=') << std::endl;
                 context.runCode();
+                std::cout << std::string(80, '=') << std::endl;
             }
 
 
