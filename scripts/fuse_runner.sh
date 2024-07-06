@@ -15,9 +15,41 @@ rawname=$(basename "$1" .ll)
 
 objfile_name=$rawname.bc
 # llc -filetype=asm -o="$objfile_name" "$1"
-llvm-as "$1" -o "$rawname.bc"
+VERSION=""
 
-# Check if llc command was successful
+OS="$(uname)"
+
+# Platform specific commands, Im aware it might not be the best practice
+if [ "$OS" == "Linux" ]; then
+    # Check for multiple versions of llvm
+    for VERSION in {18..8} ""; do
+        if command -v "llvm-as-$VERSION" >/dev/null 2>&1; then
+            LLVM_AS="llvm-as-$VERSION"
+            break
+        fi
+    done
+elif [ "$OS" == "Darwin" ]; then 
+    LLVM_AS="llvm-as" # I've found that llvm executables
+                      # Do not contain versioning in osx systems
+else
+    echo "Unsupported operating system."
+    exit 1
+fi
+
+# If LLVM_AS is not set, the required command was not found
+if [ -z "$LLVM_AS" ]; then
+    echo "llvm-as command executed incorrectly."
+    exit 1
+fi
+
+if [ -z "$VERSION" ]; then
+    echo "Error finding LLVM version."
+    exit 1
+fi
+
+# Generate bitcode
+$LLVM_AS "$1" -o "$rawname.bc"
+
 if [ $? -ne 0 ]; then
     echo "Error generating object file from .ll file"
     rm "$1"
@@ -44,7 +76,8 @@ if [ "$3" = "-w" ]; then
 
 else
     # Generate executable
-    clang "$objfile_name" -o "$2"
+    CLANGDCMD="clang-$VERSION"
+    $CLANGDCMD "$objfile_name" -o "$2"
     if [ $? -ne 0 ]; then
         echo "clang command failed"
         exit 1

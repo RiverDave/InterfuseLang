@@ -19,8 +19,6 @@
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
-
-
 #include <map>
 #include <memory>
 #include <stack>
@@ -115,6 +113,7 @@ public:
     //Loop exit stuff(purely experimental)
     std::optional<llvm::BasicBlock*> loop_start_bb;
     std::optional<llvm::BasicBlock*> next_jumpable_bb;
+
     bool _verbose_mode;
     bool exit_loop = false;
     std::string dump_file_name;
