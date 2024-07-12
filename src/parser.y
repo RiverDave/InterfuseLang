@@ -1,105 +1,94 @@
-%{ 
+%language "C++"
+%require "3.7"
+%define parser_class_name {fuse_parser}
+%define api.value.type variant
+%define parse.error verbose
 
-    #include "../include/Lexer.h"
-    #include <FuseHandler.h>
+%code requires {
+
+    #include "Lexer.h"
+    #include "AST.h"
+    #include "FuseHandler.h"
     #include <iostream>
     #include <vector>
     #include <memory>
+    #include <variant>
 
+    using namespace std;
+}
 
-//To be accessed in the lexer 
+%code{
 
+/*
+void yy::fuse_parser::error (const string& m,
 
-//Entry point for the parser(to be called in main by context)
-    NBlock *programBlock;
+std::vector<std::unique_ptr<Token>> err_tokens = std::vector<std::unique_ptr<Token>>()) {
+
+    if (err_tokens.size() >= 1){
+
+      std::cerr << "INTERFUSE ERROR: " <<  err;
+      TokenLocation err_range = fusehandler.getErrorLocation(std::move(err_tokens));
+      std::cout << " At line: " << err_range << std::endl;
+     }else{
+      std::cerr << "INTERFUSE Untracked ERROR found -> " <<  err << std::endl;;
+      getErrorCnt();
+
+    }
+
+  fusehandler.err_cnt++;
+}
+*/
+
+    std::unique_ptr<NBlock> programBlock;
     FuseHandler fusehandler;
-    extern int yylex();
+    int yylex(yy::fuse_parser::semantic_type* yylval);
 
     void getErrorCnt(){
       std::cout << "Aborting... Known Errors: " << fusehandler.err_cnt << std::endl;
     }
-
-    void yyerror (const char* err, std::vector<std::unique_ptr<Token>> err_tokens = std::vector<std::unique_ptr<Token>>()) {
-
-        if (err_tokens.size() >= 1){
-
-          std::cerr << "INTERFUSE ERROR: " <<  err;
-          TokenLocation err_range = fusehandler.getErrorLocation(std::move(err_tokens));
-          std::cout << " At line: " << err_range << std::endl;
-         }else{
-          std::cerr << "INTERFUSE Untracked ERROR found -> " <<  err << std::endl;;
-          getErrorCnt();
-
-        }
-
-      fusehandler.err_cnt++;
-    }
-
-
-
-
-%}
-
-
-%union {
-
-  Node *node;
-  NBlock *block;
-  NExpression *expr;
-  NStatement *stmt;
-  NIdentifier *id;
-  NVariableDeclaration *var_decl;
-  VariableList* varvec;
-  std::vector<NExpression*> *exprs;
-
-//an if stmts can contain multiple expressions and blocks
-//This type will be changed later(its already defined in the ast)
-  //NIfStatement *if_stmt;
-  NElseStatement *else_stmt; // Change this line
-  //for loop stmt
-  //NStatement *for_stmt;
-
-  NBlock *stmts;
-  Token* token;
 
 
 }
 
 // These are specified in Token.h as well
 
-%token<token> TKNUMBER TKDOUBLE
-%token<token> TKSTRING
-%token<token> TKPLUS TKMINUS TKMULT TKDIV TKMOD
-%token<token> TKRETURN 
-%token<token> TKCOMMA TKDOT TKARROW TKCOLON TKRANGE_INCLUSIVE 
-%token<token> TKLINEBREAK  //statement delimiter
-%token<token> TKASSIGNMENT 
+%token<Token*> TKNUMBER TKDOUBLE
+%token<Token*> TKSTRING
+%token<Token*> TKPLUS TKMINUS TKMULT TKDIV TKMOD
+%token<Token*> TKRETURN 
+%token<Token*> TKCOMMA TKDOT TKARROW TKCOLON TKRANGE_INCLUSIVE 
+%token<Token*> TKLINEBREAK  //statement delimiter
+%token<Token*> TKASSIGNMENT 
 //comparison operators
-%token<token> TKLESS TKGREATER TKLESS_EQUAL TKGREATER_EQUAL TKEQUAL TKNOT_EQUAL
+%token<Token*> TKLESS TKGREATER TKLESS_EQUAL TKGREATER_EQUAL TKEQUAL TKNOT_EQUAL
 // Loop stuff
-%token<token> TKAND TKOR
+%token<Token*> TKAND TKOR
 
-%token<token> TKNEGATION
+%token<Token*> TKNEGATION
 
-%token<token> TKIDENTIFIER 
-%token<token> TKDATATYPE 
-%token<token> TKCURLYOPEN TKCURLYCLOSE
-%token<token> TKPAROPEN TKPARCLOSE
-%token<token> TKFUNCTION_KEY
-%token<token> TKIF TKELSE TKELSEIF 
-%token<token> TKFOR TKIN TKBREAK TKCONT
-%token<token> TKINVALID
+%token<Token*> TKIDENTIFIER 
+%token<Token*> TKDATATYPE 
+%token<Token*> TKCURLYOPEN TKCURLYCLOSE
+%token<Token*> TKPAROPEN TKPARCLOSE
+%token<Token*> TKFUNCTION_KEY
+%token<Token*> TKIF TKELSE TKELSEIF 
+%token<Token*> TKFOR TKIN TKBREAK TKCONT
+%token<Token*> TKINVALID
 
-%type<id> id
-%type<varvec> fn_args
-%type<exprs> fn_call_args
-%type<stmt> stmt var_decl fn_decl if_stmt for_stmt break_stmt continue_stmt
-%type<else_stmt> else_stmt
 
-%type<block> program stmts block
+%type<Token*> comparison negation binary_op
+%type<std::unique_ptr<NIdentifier>> id
+%type<std::unique_ptr<VariableList>> fn_args
+%type<unique_ptr<vector<unique_ptr<NExpression>>>> fn_call_args
+%type<std::unique_ptr<NStatement>> stmt  fn_decl if_stmt for_stmt break_stmt continue_stmt
+%type <std::unique_ptr<NVariableDeclaration>> var_decl
+%type<std::unique_ptr<NElseStatement>> else_stmt
+
+%type<std::unique_ptr<NBlock>> program stmts block
 //%type<var_decls> var_decls //not quite sure bout this
-%type<expr> expr numeric string
-%type<token> comparison negation binary_op
+%type<std::unique_ptr<NExpression>> expr numeric string
+
+
 
 
 //Operator precedence
@@ -113,23 +102,22 @@
 
 //Parser entry point
 program:
-    stmts 
+    stmts
     {
-        programBlock = $1;
-    } 
+        programBlock = std::move($1);
+    }
     ;
 
-stmts: 
-     //NOTE: This defines our statement delimiter (through ;)
+stmts:
      stmt 
      {
         //Initialize new block
         //&& since block contains a statement list
         //push the statement into the block !!
-        $$ = new NBlock();
-        if($<stmt>1 != nullptr)
+        $$ = std::make_unique<NBlock>();
+        if($1 != nullptr)
         {
-            $$->statements.push_back($<stmt>1);
+            $$->statements.push_back(std::move($1));
         } 
 
      } |
@@ -137,7 +125,7 @@ stmts:
      stmt error
      {
         std::vector<std::unique_ptr<Token>> local_error;
-        yyerror("Error found in statement", std::move(local_error));
+        error("Error found in statement"/*, std::move(local_error)*/);
         $$ = nullptr;
         YYABORT;
 
@@ -145,17 +133,20 @@ stmts:
      stmts stmt 
      {
         //TODO: Elaborate further this solution(specifically)
-        $$ = $<stmts>1;
+        $$ = std::move($1);
 
-        if($<stmt>2 != nullptr)
+        if($2 != nullptr)
         {
-          $1->statements.push_back($<stmt>2);
+          $1->statements.push_back(std::move($2));
+
         } else if($2 == nullptr){
+          /*
           std::vector<std::unique_ptr<Token>> local_error;
-          yyerror("Missing ; Delimiter", std::move(local_error));
+          error("Missing ; Delimiter", std::move(local_error));// FIXME: Wrong error
           $$ = nullptr;
           getErrorCnt();
           YYABORT;
+          */
         }
 
 
@@ -163,8 +154,8 @@ stmts:
 
       stmts block
       {
-          $$ = $<stmts>1;
-          $$ = $<block>2;
+          $$ = std::move($1);
+          $$ = std::move($2);
       } | 
 
       block
@@ -182,7 +173,7 @@ stmt:
     {
         if($1 != nullptr)
         {
-            $$ = new NExpressionStatement(*$1);
+            $$ = std::make_unique<NExpressionStatement>(std::move($1));
         }
 
     } |
@@ -194,12 +185,12 @@ stmt:
 
     TKRETURN expr
     {
-        $$ = new NReturnStatement($<expr>2);
+        $$ = std::make_unique<NReturnStatement>(std::move($2));
     } |
 
     TKRETURN
     {
-        $$ = new NReturnStatement();
+        $$ = std::make_unique<NReturnStatement>();
     } |
 
     fn_decl
@@ -218,19 +209,19 @@ stmt:
     } | 
     break_stmt
     {
-        $$ = new NBreakStatement();
+        $$ = std::make_unique<NBreakStatement>();
 
 
     } |
     continue_stmt
     {
-        $$ = new NContinueStatement();
+        $$ = std::make_unique<NContinueStatement>();
     }
     ;
 
 id : TKIDENTIFIER
     {
-        $$ = new NIdentifier($1->getValue());
+        $$ = std::make_unique<NIdentifier>($1->getValue());
         delete $1;
     }
     ;
@@ -243,15 +234,15 @@ var_decl:
         if(!$5){
           std::vector<std::unique_ptr<Token>> local_error;
           local_error.push_back(std::make_unique<Token>(*$4));
-          yyerror("Invalid assignment expression to variable declaration", std::move(local_error));
+          error("Invalid assignment expression to variable declaration"/*, std::move(local_error)*/);
           $$ = nullptr;
           getErrorCnt();
           YYABORT;
 
         }else{
-          NIdentifier* type = new NIdentifier($3->getValue().c_str());
-          NIdentifier* id = new NIdentifier($1->getValue().c_str());
-          $$ = new NVariableDeclaration(*type, id, $5);
+          std::unique_ptr<NIdentifier> type = std::make_unique<NIdentifier>($3->getValue().c_str());
+          std::unique_ptr<NIdentifier> id = std::make_unique<NIdentifier>($1->getValue().c_str());
+          $$ = std::make_unique<NVariableDeclaration>(std::move(type), std::move(id), std::move($5));
 
         }
 
@@ -263,10 +254,10 @@ var_decl:
 //empty var_decl
     TKIDENTIFIER TKCOLON TKDATATYPE
     {
-        NIdentifier* type = new NIdentifier($3->getValue().c_str());
-        NIdentifier* id = new NIdentifier($1->getValue().c_str());
+        std::unique_ptr<NIdentifier> type = std::make_unique<NIdentifier>($3->getValue().c_str());
+        std::unique_ptr<NIdentifier> id = std::make_unique<NIdentifier>($1->getValue().c_str());
 
-        $$ = new NVariableDeclaration(*type, id);
+        $$ = std::make_unique<NVariableDeclaration>(std::move(type), std::move(id));
     }
     ;
 
@@ -274,35 +265,32 @@ fn_decl:
     TKFUNCTION_KEY id TKPAROPEN fn_args TKPARCLOSE TKARROW TKDATATYPE block
     {
 
-        NIdentifier* type = new NIdentifier($7->getValue().c_str());
-        $$ = new NFnDeclaration(*$2, *$4, *type, $8);
+        std::unique_ptr<NIdentifier>type = std::make_unique<NIdentifier>($7->getValue().c_str());
+        $$ = std::make_unique<NFnDeclaration>(std::move($2), std::move($4), std::move(type), std::move($8));
     } | 
 
 //Prototype declaration
     TKFUNCTION_KEY id TKPAROPEN fn_args TKPARCLOSE TKARROW TKDATATYPE 
     {
-        NIdentifier* type = new NIdentifier($7->getValue().c_str());
-        $$ = new NFnDeclaration(*$2, *$4, *type);
+        std::unique_ptr<NIdentifier>type = std::make_unique<NIdentifier>($7->getValue().c_str());
+        $$ = std::make_unique<NFnDeclaration>(std::move($2), std::move($4), std::move(type));
     }
     ;
 
 fn_args:
        //empty*
-       {
-          $$ = new VariableList();
+   {
+      $$ = std::make_unique<std::vector<std::unique_ptr<NVariableDeclaration>>>();//aka var list
 
-       }|
+   } |
+
     var_decl
     {
-
-//NOTE: Need to pass variable details before being able to push it to the vector
-          $$ = new VariableList();
-          $$->push_back(new NVariableDeclaration(*$<var_decl>1));
+          $$->push_back(std::move($1));
     } |
     fn_args TKCOMMA var_decl
     {
-          $1->push_back(new NVariableDeclaration(*$<var_decl>3));
-          //$1->push_back($3);
+          $1->push_back(std::move($3));
     }
     ;
 
@@ -310,23 +298,27 @@ block :
     TKCURLYOPEN stmt TKCURLYCLOSE
     {
         //$$ = $2;
-        $$ = new NBlock();
-        $$->statements.push_back($<stmt>2);
+        $$ = std::make_unique<NBlock>();
+        $$->statements.push_back(std::move($2));
     } |
     TKCURLYOPEN stmts TKCURLYCLOSE
     {
-        $$ = new NBlock();
-        $$->statements.push_back($<stmt>2);
+        //risky
+        //NOTE: NOT SURE BOUT THIS
+        $$ = std::move($2);
+        //$$ = std::make_unique<NBlock>();
+        //auto stmt = std::move(std::get<std::unique_ptr<NStatement>>($2));
+        //$$->statements.push_back(std::move(stmt));
     } |
     TKCURLYOPEN expr TKCURLYCLOSE
     {
 
-        $$ = new NBlock();
-        $$->statements.push_back(new NExpressionStatement(*$<expr>2));
+        $$ = std::make_unique<NBlock>();
+        $$->statements.push_back(std::make_unique<NExpressionStatement>(std::move($2)));
     } |
     TKCURLYOPEN TKCURLYCLOSE
     {
-        $$ = new NBlock();
+        $$ = std::make_unique<NBlock>();
     }
     ;
 
@@ -340,13 +332,13 @@ for_stmt:
     TKFOR id TKIN expr TKCOLON expr block
     {
 
-        $$ = new NForStatement($2, $4, $6, $7);
+        $$ = std::make_unique<NForStatement>(std::move($2), std::move($4), std::move($6), std::move($7));
     } | 
     TKFOR  error
     {
         std::vector<std::unique_ptr<Token>> local_error;
         local_error.push_back(std::make_unique<Token>(*$1));
-        yyerror("Incorrect 'for' statement in for loop", std::move(local_error));
+        error("Incorrect 'for' statement in for loop"/*, std::move(local_error)*/);
         $$ = nullptr;
         getErrorCnt();
         YYABORT;
@@ -361,20 +353,19 @@ if_stmt:
         if(!$2){
           std::vector<std::unique_ptr<Token>> local_error;
           local_error.push_back(std::make_unique<Token>(*$1));
-          yyerror("Invalid expression in if statement", std::move(local_error));
+          error("Invalid expression in if statement"/*, std::move(local_error)*/);
           $$ = nullptr;
           getErrorCnt();
           YYABORT;
 
         }
         
-        $$ = new NIfStatement($<expr>2, $3);
+        $$ = std::make_unique<NIfStatement>(std::move($2), std::move($3));
     } |
 
     TKIF expr block else_stmt
     {
-        //$$ = new NIfStatement($<expr>2, $3, $4);
-        $$ = new NIfStatement($<expr>2, $3, $<else_stmt>4); 
+        $$ = std::make_unique<NIfStatement>(std::move($2), std::move($3), std::move($4)); 
     } |
 
     ;
@@ -382,20 +373,21 @@ if_stmt:
 else_stmt:
     TKELSE if_stmt
     {
-       $$ = $<else_stmt>2; 
+    //UNSUPORTED FOR NOW
+       //$$ = $<else_stmt>2;
        //$$ = $2;
     }
     |
     TKELSE block
     {
 
-      $$ = new NElseStatement($2);
+      $$ = std::make_unique<NElseStatement>(std::move($2));
      //$$ = new NElseStatement($2);
     }
     |
     /* empty */
     {
-        $$ = nullptr;
+        //$$ = nullptr;
     }
     ;
 
@@ -410,23 +402,32 @@ continue_stmt:
 fn_call_args:
     /* empty */
     {
-        $$ = new ExpressionList();
+        $$ = std::make_unique<ExpressionList>();
     } |
     expr
     {
-        $$ = new ExpressionList();
-        $$->push_back($1);
+        $$ = std::make_unique<ExpressionList>();
+        $$->push_back(std::move($1));
     } |
     fn_call_args TKCOMMA expr
     {
-        $1->push_back($3);
+        if(!$3){
+          std::vector<std::unique_ptr<Token>> local_error;
+          local_error.push_back(std::make_unique<Token>(*$2));
+          error("Invalid expression in function call"/*, std::move(local_error)*/);
+          $$ = nullptr;
+          getErrorCnt();
+          YYABORT;
+        }
+
+        $1->push_back(std::move($3));
     } |
 
     TKINVALID
     {
       std::vector<std::unique_ptr<Token>> local_error;
       local_error.push_back(std::make_unique<Token>(*$1));
-      yyerror("Invalid Token in function call", std::move(local_error));
+      error("Invalid Token in function call"/*, std::move(local_error)*/);
       $$ = nullptr;
       getErrorCnt();
       YYABORT;
@@ -439,14 +440,14 @@ expr:
     {
       std::vector<std::unique_ptr<Token>> local_error;
       local_error.push_back(std::make_unique<Token>(*$1));
-      yyerror("Invalid Token", std::move(local_error));
+      error("Invalid Token"/*, std::move(local_error)*/);
       $$ = nullptr;
     } |
 
     error 
     {
       std::vector<std::unique_ptr<Token>> local_error;
-      yyerror("Invalid expression", std::move(local_error));
+      error("Invalid expression"/*, std::move(local_error)*/);
       $$ = nullptr;
       getErrorCnt();
       YYABORT;
@@ -458,35 +459,40 @@ expr:
     if(!$3){
       std::vector<std::unique_ptr<Token>> local_error;
       local_error.push_back(std::make_unique<Token>(*$2));
-      yyerror("Invalid assignment expression", std::move(local_error));
+      error("Invalid assignment expression"/*, std::move(local_error)*/);
       $$ = nullptr;
       getErrorCnt();
       YYABORT;
 
     }
       //Should call asignment from ast
-        $$ = new NAssignment($1, $3);
+        $$ = std::make_unique<NAssignment>(std::move($1), std::move($3));
 
     } |
 
     id TKPAROPEN fn_call_args TKPARCLOSE
     {
-    $$ =  new NFnCall(*$<id>1, *$3);
+    $$ = std::make_unique<NFnCall>(std::move($1), std::move($3));
 
     } |
 
     id
     {
-      $$ = $<id>1;
+      $$ = std::move($1);
 
-    //NOTE: Since this is being parsed as an exp and as well as a variable declaration
-    //There should be a function that checks if the id is defined within current scope(locals)
+    } |
 
-    } |  
+    numeric
+    {
 
-    numeric | 
+      $$ = std::move($1);
+    }|
+    string
+    {
 
-    string |
+      $$ = std::move($1);
+
+    }|
 
     expr binary_op expr
     {
@@ -494,13 +500,13 @@ expr:
       {
         std::vector<std::unique_ptr<Token>> local_error;
         local_error.push_back(std::make_unique<Token>(*$2));
-        yyerror("Invalid operand expression", std::move(local_error));
+        error("Invalid operand expression"/*, std::move(local_error)*/);
         $$ = nullptr;
         getErrorCnt();
         YYABORT;
 
       } else {
-        $$ = new NBinaryOperator($1, $2, $3);
+        $$ = std::make_unique<NBinaryOperator>(std::move($1), $2, std::move($3));
       }
 
       //delete $2;
@@ -509,7 +515,7 @@ expr:
 
     TKPAROPEN expr TKPARCLOSE
     {
-      $$ = $2;
+      $$ = std::move($2);
 
     } |
 
@@ -520,13 +526,13 @@ expr:
       {
         std::vector<std::unique_ptr<Token>> local_error;
         local_error.push_back(std::make_unique<Token>(*$2));
-        yyerror("Invalid operand comparison expression", std::move(local_error));
+        error("Invalid operand comparison expression"/*, std::move(local_error)*/);
         $$ = nullptr;
         getErrorCnt();
         YYABORT;
 
       } else {
-        $$ = new NBinaryOperator($1, $2, $3);
+        $$ = std::make_unique<NBinaryOperator>(std::move($1), std::move($2), std::move($3));
       }
 
     } |
@@ -537,13 +543,13 @@ expr:
       {
         std::vector<std::unique_ptr<Token>> local_error;
         local_error.push_back(std::make_unique<Token>(*$1));
-        yyerror("Invalid negation expression", std::move(local_error));
+        error("Invalid negation expression"/*, std::move(local_error)*/);
         $$ = nullptr;
         getErrorCnt();
         YYABORT;
 
       } else {
-        $$ = new NUnaryOperator($1, $2);
+        $$ = std::make_unique<NUnaryOperator>($1, std::move($2));
       }
     }
     ;
@@ -552,14 +558,14 @@ numeric:
     TKNUMBER
     {
 
-      $$ = new NInteger(std::atof($1->getValue().c_str()));
-      delete $1;
+      $$ = std::make_unique<NInteger>(std::atof($1->getValue().c_str()));
+      //delete $1;
 
     } | 
     TKDOUBLE
     {
-      $$ = new NDouble(std::atof($1->getValue().c_str()));
-      delete $1;
+      $$ = std::make_unique<NDouble>(std::atof($1->getValue().c_str()));
+     // delete $1;
 
 
     }
@@ -568,8 +574,8 @@ numeric:
 string:
     TKSTRING
     {
-      $$ = new NString($1->getValue());
-      delete $1;
+      $$ = std::make_unique<NString>($1->getValue());
+      //delete $1;
     }
     ;
 
@@ -601,4 +607,10 @@ comparison:
 
 
 %%
+
+void yy::fuse_parser::error(const string& m) {
+  std::cerr << "INTERFUSE ERROR: " <<  m << std::endl;
+}
+
+
 

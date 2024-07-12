@@ -1,18 +1,14 @@
-#include "Lexer.h"//FIXME: These shouldn't be included with relative path
+#include "Lexer.h"
 #include <algorithm>
 #include <cstring>
-#include <fstream>
 #include <iostream>
-#include <optional>
 #include <sstream>
-#include <stack>
 #include <string>
-#include <unordered_map>
 
 #include "../build/parser.hpp"
-#include "FuseHandler.h"
 
-extern FuseHandler fusehandler;//Declared in BISON file
+extern FuseHandler fusehandler;
+
 
 inline void logError(Token tok, const std::string &msg) {
     std::cerr << "INTERFUSE ERROR: " << msg << " at " << tok.getLocation() << std::endl;
@@ -20,7 +16,8 @@ inline void logError(Token tok, const std::string &msg) {
 }
 
 // BISON Interface
-extern "C" int yylex() {
+
+int yylex(yy::fuse_parser::semantic_type *yylval) {
     if (!lexerInstance) {
         if (!_global_file_path.empty()) {
             lexerInstance = new Lexer(std::fstream(_global_file_path));
@@ -86,169 +83,171 @@ extern "C" int yylex() {
     switch (token.getType()) {
 
         case NUMBER:
-            yylval.token = new Token(token);
-            return TKNUMBER;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKNUMBER;
 
         case DOUBLE:
-            yylval.token = new Token(token);
-            return TKDOUBLE;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKDOUBLE;
 
         case OPERATOR_PLUS:
-            yylval.token = new Token(token);
-            return TKPLUS;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKPLUS;
 
         case OPERATOR_MINUS:
-            yylval.token = new Token(token);
-            return TKMINUS;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKMINUS;
 
         case OPERATOR_MULTIPLY:
-            yylval.token = new Token(token);
-            return TKMULT;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKMULT;
 
         case OPERATOR_DIVIDE:
-            yylval.token = new Token(token);
-            return TKDIV;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKDIV;
 
         case KEYWORD_RET:
-            yylval.token = new Token(token);
-            return TKRETURN;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKRETURN;
 
         case CURLY_BRACKET_OPEN:
-            yylval.token = new Token(token);
-            return TKCURLYOPEN;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKCURLYOPEN;
 
         case CURLY_BRACKET_CLOSE:
-            yylval.token = new Token(token);
-            return TKCURLYCLOSE;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKCURLYCLOSE;
 
         case PARENTHESIS_OPEN:
-            yylval.token = new Token(token);
-            return TKPAROPEN;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKPAROPEN;
 
         case PARENTHESIS_CLOSE:
-            yylval.token = new Token(token);
-            return TKPARCLOSE;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKPARCLOSE;
 
         case COMMA:
-            yylval.token = new Token(token);
-            return TKCOMMA;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKCOMMA;
 
         case DOT:
-            yylval.token = new Token(token);
-            return TKDOT;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKDOT;
 
         case COLON:
-            yylval.token = new Token(token);
-            return TKCOLON;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKCOLON;
 
         case RANGE_INCLUSIVE:
-            yylval.token = new Token(token);
-            return TKRANGE_INCLUSIVE;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKRANGE_INCLUSIVE;
 
         case ARROW:
-            yylval.token = new Token(token);
-            return TKARROW;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKARROW;
 
         case LINEBREAK:
-            yylval.token = new Token(token);
-            return TKLINEBREAK;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKLINEBREAK;
 
         case ASSIGNMENT:
-            yylval.token = new Token(token);
-            return TKASSIGNMENT;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKASSIGNMENT;
 
         case IDENTIFIER:
-            yylval.token = new Token(token);
-            return TKIDENTIFIER;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKIDENTIFIER;
 
         case KEYWORD_PROCEDURE:
-            yylval.token = new Token(token);
-            return TKFUNCTION_KEY;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKFUNCTION_KEY;
 
         case DATA_TYPE:
-            yylval.token = new Token(token);
-            return TKDATATYPE;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKDATATYPE;
 
         case KEYWORD_IF:
-            yylval.token = new Token(token);
-            return TKIF;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKIF;
 
         case KEYWORD_ELSE:
-            yylval.token = new Token(token);
-            return TKELSE;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKELSE;
 
         case KEYWORD_ELSE_IF:
-            yylval.token = new Token(token);
-            return TKELSEIF;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKELSEIF;
 
         case KEYWORD_LOOP_FOR:
-            yylval.token = new Token(token);
-            return TKFOR;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKFOR;
 
         case KEYWORD_LOOP_IN:
-            yylval.token = new Token(token);
-            return TKIN;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKIN;
 
         case KEYWORD_LOOP_BREAK:
-            yylval.token = new Token(token);
-            return TKBREAK;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKBREAK;
 
-            // operator stuff
+        // operator stuff
         case OPERATOR_EQUALS:
-            yylval.token = new Token(token);
-            return TKEQUAL;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKEQUAL;
 
         case OPERATOR_LESS_THAN:
-            yylval.token = new Token(token);
-            return TKLESS;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKLESS;
 
         case OPERATOR_LESS_THAN_EQUALS:
-            yylval.token = new Token(token);
-            return TKLESS_EQUAL;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKLESS_EQUAL;
 
         case OPERATOR_GREATER_THAN:
-            yylval.token = new Token(token);
-            return TKGREATER;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKGREATER;
 
         case OPERATOR_GREATER_THAN_EQUALS:
-            yylval.token = new Token(token);
-            return TKGREATER_EQUAL;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKGREATER_EQUAL;
 
         case OPERATOR_NOT_EQUALS:
-            yylval.token = new Token(token);
-            return TKNOT_EQUAL;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKNOT_EQUAL;
+
         case OPERATOR_AND:
-            yylval.token = new Token(token);
-            return TKAND;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKAND;
+
         case OPERATOR_OR:
-            yylval.token = new Token(token);
-            return TKOR;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKOR;
 
         case OPERATOR_NEGATION:
-            yylval.token = new Token(token);
-            return TKNEGATION;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKNEGATION;
 
         case KEYWORD_LOOP_CONTINUE:
-            yylval.token = new Token(token);
-            return TKCONT;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKCONT;
 
         case OPERATOR_MODULO:
-            yylval.token = new Token(token);
-            return TKMOD;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKMOD;
 
         case STRING:
-            yylval.token = new Token(token);
-            return TKSTRING;
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKSTRING;
 
-        case INVALID: {//This should not be necessary for error recovery matters(I think so)
+        case INVALID:
             logError(token, "Invalid token");
-            yylval.token = new Token(token);
-            return TKINVALID;
-        }
+            yylval->as<Token *>() = new Token(token);
+            return yy::fuse_parser::token::TKINVALID;
 
         default:
             return 0;
     }
+
 
     return 0;
 }
@@ -690,7 +689,8 @@ Token Lexer::get_next_token() {
 
             } else if (isalnum(curr_char)) {// token could potentially be a keyword
 
-                const auto buffer = std::find_if_not(*_position, input.end(), isalnum);
+                auto buffer = std::find_if_not(*_position, input.end(),
+                                               static_cast<int (*)(int)>(std::isalnum)); //Weird cast due to ambiguous overload
                 std::string::iterator old_pos = *_position;
                 TokenLocation npos = _position.getLocation();
 

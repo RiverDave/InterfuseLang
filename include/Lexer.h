@@ -41,7 +41,6 @@ public:
 //To be integrated with the parser(BISON)
 
 static Lexer *lexerInstance = nullptr;
-extern "C" int yylex();
 
 
 #endif

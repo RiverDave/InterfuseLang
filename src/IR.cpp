@@ -353,7 +353,7 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context) {
     Value *last = nullptr;
 
     std::for_each(statements.begin(), statements.end(),
-                  [&](NStatement *stmt) {
+                  [&](std::unique_ptr<NStatement>&stmt) {
                       last = stmt->codeGen(context);
                   });
     return last;
@@ -371,7 +371,7 @@ llvm::Value *NInteger::codeGen(CodeGenContext &context) {
 }
 
 llvm::Value *NExpressionStatement::codeGen(CodeGenContext &context) {
-    return expression.codeGen(context);
+    return expression->codeGen(context);
 }
 
 // Variable expression
@@ -566,7 +566,7 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
 
     auto find = context.blocks.top()->locals.find(id->name);
 
-    Type *varType = this->type.getType(context);
+    Type *varType = this->type->getType(context);
     assert(varType);
 
     if (varType->isVoidTy()) {
@@ -583,7 +583,7 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
         if (parentFunction->getName() == "main") {
 
             //This returns a global Variable obj
-            gVar = reinterpret_cast<GlobalVariable *>(context.insertGlobal(this->id->name, this->type.getType(context)));
+            gVar = reinterpret_cast<GlobalVariable *>(context.insertGlobal(this->id->name, this->type->getType(context)));
 
             context.globals[id->name] = fuseData::globalInfo{nullptr, varType};
 
@@ -676,15 +676,15 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context) {
 //TODO: Variables declared on the main block, Should be global variables
 llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
     // Prototype generation:
-    Function *fn = context.TheModule->getFunction(id.name);
+    Function *fn = context.TheModule->getFunction(id->name);
 
     if (!fn) {
         std::vector<Type *> argTypes;
         std::for_each(
-                params.begin(), params.end(), [&](NVariableDeclaration *var_decl) {
-                    argTypes.push_back(var_decl->type.getType(context));
+                params->begin(), params->end(), [&](std::unique_ptr<NVariableDeclaration>&var_decl) {
+                    argTypes.push_back(var_decl->type->getType(context));
 
-                    if (var_decl->type.getType(context)->isVoidTy()) {
+                    if (var_decl->type->getType(context)->isVoidTy()) {
                         std::string err =
                                 "Invalid data type for function parameter " + var_decl->id->name;
                         LogErrorV(err.c_str());
@@ -692,7 +692,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
                     }
                 });
 
-        Type *fnRetType = this->retType.getType(context);
+        Type *fnRetType = this->retType->getType(context);
 
         if (!fnRetType) {
             std::string err = "Unknown fn return type";
@@ -702,15 +702,15 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
 
         llvm::FunctionType *FT = FunctionType::get(fnRetType, argTypes, false);
 
-        fn = Function::Create(FT, GlobalValue::ExternalLinkage, id.name,
+        fn = Function::Create(FT, GlobalValue::ExternalLinkage, id->name,
                               context.TheModule.get());
         assert(fn && "Fn instance not created");
 
         //Define this early to allow recursive calls
-        context.globals[this->id.name] =
-                fuseData::globalInfo{fn, this->retType.getType(context), fn->getFunctionType()};
+        context.globals[this->id->name] =
+                fuseData::globalInfo{fn, this->retType->getType(context), fn->getFunctionType()};
     } else if (fn && !fn->empty()) {
-        std::string err = "Function '" + id.name + "' already exists and it is defined";
+        std::string err = "Function '" + id->name + "' already exists and it is defined";
         LogErrorV(err.c_str());
         throw std::runtime_error(err);
     }
@@ -720,7 +720,9 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
     if (fnBlock && fn) {
         size_t i = 0;
         for (auto &arg: fn->args()) {
-            arg.setName(params[i++]->id->name);
+          //What a funny syntax!
+          //Dereference ptr and access its val
+            arg.setName((*params)[i++]->id->name);
         }
 
         BasicBlock *BB = BasicBlock::Create(*context.TheContext.get(), "fnBlock", fn);
@@ -761,7 +763,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
 
         if (!hasReturnInst && !fn->getReturnType()->isVoidTy()) {
             std::string err =
-                    "Function " + this->id.name + " should have a return value";
+                    "Function " + this->id->name + " should have a return value";
             LogErrorV(err.c_str());
             throw std::runtime_error(err);
         } else if (!hasReturnInst && fn->getReturnType()->isVoidTy()) {
@@ -786,8 +788,8 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
     }
 
 
-    context.globals[this->id.name] =
-            fuseData::globalInfo{fn, this->retType.getType(context), fn->getFunctionType()};
+    context.globals[this->id->name] =
+            fuseData::globalInfo{fn, this->retType->getType(context), fn->getFunctionType()};
     return fn;
 }
 
@@ -836,32 +838,32 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
     // 4. Get expression(s) from ast
 
     // Get relevant info to call the function
-    auto find = context.globals.find(this->id.name);
+    auto find = context.globals.find(this->id->name);
 
     // Check if Fn was defined
-    Function *fn = context.TheModule->getFunction(id.name);
+    Function *fn = context.TheModule->getFunction(id->name);
 
     if (fn && find != context.globals.end()) {// -> Only defined functions shall be called
 
         //Really hard coded for now, but will improve later(to support chained strings etc...)
-        if (this->arguments.size() == 1 && fn->getName() == "printf") {
+        if (this->arguments->size() == 1 && fn->getName() == "printf") {
             //Call to C's stdlib functions
-            auto val = this->arguments[0]->codeGen(context);
+            auto val = (*this->arguments)[0]->codeGen(context);
             llvm::CallInst *call = createOutCall(context, val);
             return call;
         }
 
         if (fn->empty() && !find->second.isCwrapper) {//C functions are marked as empty functions in llvm
                                                       //So we check for the flag
-            std::string err = "Prototype found for Function " + this->id.name + " but not defined";
+            std::string err = "Prototype found for Function " + this->id->name + " but not defined";
             LogErrorV(err.c_str());
             throw std::runtime_error(err);
         }
 
         std::vector<Value *> args;
-        if (arguments.size() == fn->arg_size()) {
+        if (arguments->size() == fn->arg_size()) {
             unsigned i = 0;
-            for (auto &arg: this->arguments) {
+            for (auto &arg: *this->arguments) {
                 Value *V = arg->codeGen(context);
                 // size_t vals = find->second.fnType->getNumParams();
                 Type *paramType = fn->args().begin()[i].getType();
@@ -874,7 +876,7 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
                 if (V->getType() != paramType) {
 
                     std::string err =
-                            "Argument type mismatch in Function: " + this->id.name + "\n";
+                            "Argument type mismatch in Function: " + this->id->name + "\n";
                     LogErrorV(err.c_str());
                     throw std::runtime_error(err);
                 }
@@ -891,7 +893,7 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
 
         } else {
             std::string err =
-                    "Argument size mismatch in Function: " + this->id.name + "\n";
+                    "Argument size mismatch in Function: " + this->id->name + "\n";
             LogErrorV(err.c_str());
             throw std::runtime_error(err);
         }
@@ -908,7 +910,7 @@ llvm::Value *NFnCall::codeGen(CodeGenContext &context) {
 
     } else {
 
-        std::string err = "Function " + this->id.name + " not found or not defined";
+        std::string err = "Function " + this->id->name + " not found or not defined";
         LogErrorV(err.c_str());
         throw std::runtime_error(err);
     }
@@ -1024,7 +1026,7 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     //Loop init expression
 
     Function *parentFn = context.blocks.top()->blockWrapper->getParent();
-    Value *initVar = context.checkId(this->initialization->name);
+    Value *initVar = context.checkId(this->init->name);
 
     bool isAlloca = false;
 
@@ -1046,11 +1048,11 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
 
         //I assume loop variables are whole integers
         //TODO: This alloc should be inserted on a new block(loop block?)
-        allocInst = context.insertMemOnFnBlock(parentFn, this->initialization->name, llvm::Type::getInt64Ty(*context.TheContext));
+        allocInst = context.insertMemOnFnBlock(parentFn, this->init->name, llvm::Type::getInt64Ty(*context.TheContext));
 
         if (!allocInst) {
             std::string err =
-                    "Error initiallizing loop alloca: " + this->initialization->name;
+                    "Error initiallizing loop alloca: " + this->init->name;
             LogErrorV(err.c_str());
             throw std::runtime_error(err);
         }
@@ -1064,7 +1066,7 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
         context.pushBlock(stepBB, "stepbb");
 
 
-        context.blocks.top()->locals[initialization->name] = fuseData::varData{initialization->name, Type::getInt64Ty(*context.TheContext), allocInst, nStoredVal};
+        context.blocks.top()->locals[init->name] = fuseData::varData{init->name, Type::getInt64Ty(*context.TheContext), allocInst, nStoredVal};
         isAlloca = true;// Var didn't exist so allocate it for the sake of the current loop
 
     } else {
@@ -1076,24 +1078,24 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
             auto allocType = allocInst->getAllocatedType();
             if (!allocType->isIntegerTy()) {
                 std::string err =
-                        "Attempt to initialize non integer variable in for loop: " + this->initialization->name;
+                        "Attempt to initialize non integer variable in for loop: " + this->init->name;
                 LogErrorV(err.c_str());
                 throw std::runtime_error(err);
             }
 
-            context.Builder->CreateLoad(Type::getInt64Ty(*context.TheContext), allocInst, this->initialization->name.c_str());
+            context.Builder->CreateLoad(Type::getInt64Ty(*context.TheContext), allocInst, this->init->name.c_str());
         } else {
-            //I love spaghetti code
+            //I DONT love spaghetti code
             //Search amongst globals to verify that its type is an integer
-            auto global = context.globals.find(this->initialization->name);
+            auto global = context.globals.find(this->init->name);
             if (!global->second.type->isIntegerTy()) {
                 std::string err =
-                        "Attempt to initialize non integer variable in for loop: " + this->initialization->name;
+                        "Attempt to initialize non integer variable in for loop: " + this->init->name;
                 LogErrorV(err.c_str());
                 throw std::runtime_error(err);
             }
 
-            gVar = context.TheModule->getGlobalVariable(initialization->name);
+            gVar = context.TheModule->getGlobalVariable(init->name);
             assert(gVar);
             context.Builder->CreateLoad(global->second.type, gVar, global->first.c_str());
         }
@@ -1131,7 +1133,7 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     // bool break_loop = false;
 
     Value *last = nullptr;
-    for (auto stmt: loopBlock->statements) {
+    for (auto& stmt: loopBlock->statements) {
         last = stmt->codeGen(context);
         if (last && (llvm::dyn_cast<llvm::ReturnInst>(last) || llvm::dyn_cast<llvm::BranchInst>(last))) {
             break;

@@ -5,15 +5,18 @@
 #include <FuseHandler.h>
 #include <algorithm>
 #include <iomanip>
+#include "../build/parser.hpp"
 
-extern int yyparse();
+// extern int yyparse();
 //extern void initializeLexer();
-extern NBlock *programBlock;
+extern std::unique_ptr<NBlock>programBlock;
 extern FuseHandler fusehandler;
 
 //Path to .fuse file
 std::string _global_file_path;
 std::string _binary_name;
+
+using namespace yy;
 
 
 //TODO: flag that outputs not just the result of the program but also the IR generated llvm code.
@@ -21,6 +24,8 @@ static bool _verbose_mode = false;
 static bool wasm_compilation = false;
 
 int main(int argc, char **argv) {
+    const char* var = argv[0];
+    std::cout << var << "\n";
 
     //TODO: Figure out this thing
     CLI::App app{"Fuse experimental Compiler"};
@@ -58,7 +63,6 @@ int main(int argc, char **argv) {
 
     std::cout << "Compiling " << _global_file_path << std::endl;
 
-    if (yyparse() == 0) {
         try {
 
             CodeGenContext context(_verbose_mode, _global_file_path, _binary_name, wasm_compilation);
@@ -79,10 +83,10 @@ int main(int argc, char **argv) {
             std::cerr << e.what() << std::flush;
         }
 
-    } else {
 
-        std::cerr << "Parsing failed" << std::endl;
-    }
+    //cleanup
+    delete lexerInstance;
+
 
     return 0;
 }
