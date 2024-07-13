@@ -75,12 +75,21 @@ if [ "$3" = "-w" ]; then
 
 else
 	# Generate executable
-	if [ "$OS" == "Linux" ]; then
-		CLANGDCMD="clang-$VERSION"
-		$CLANGDCMD "$objfile_name" -o "$2"
-	elif [ "$OS" == "Darwin" ]; then
-		"clang" "$1" -o "$2"
-	fi
+if [ "$OS" == "Linux" ]; then
+  if [ "$VERSION" == "" ]; then
+    for VERSION in {18..8} ""; do
+      if command -v "llvm-as-$VERSION" >/dev/null 2>&1; then
+        LLVM_AS="llvm-as-$VERSION"
+        break
+      fi
+    done
+  fi
+
+  CLANGDCMD="clang-$VERSION"
+  $CLANGDCMD "$1" -o "$2"
+elif [ "$OS" == "Darwin" ]; then
+  "clang" "$1" -o "$2"
+fi
 
 	if [ $? -ne 0 ]; then
 		echo "clang command failed"
@@ -91,6 +100,5 @@ fi
 
 #File clean up
 rm "$1"
-rm "$2.bc"
 
 echo "INTERFUSE: Compilation successful ✅"
