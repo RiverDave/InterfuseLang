@@ -1,6 +1,10 @@
+```
 fn @my_fn(@a : int) -> int {
   ret @a
 }
 
 
 @my_fn(100)
+```
+
+@printf(23)

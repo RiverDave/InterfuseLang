@@ -65,8 +65,11 @@ int yylex(yy::fuse_parser::semantic_type *yylval) {
         }
     }
 
-    // std::cout << token << " ";
-    // std::cout << token.getLocation() << std::endl;
+    if (lexerInstance->verbose) {
+
+        std::cout << token << " ";
+        std::cout << token.getLocation() << std::endl;
+    }
 
 
     //Make sure that token order is correct, last token coordinates
@@ -336,7 +339,7 @@ Token Lexer::checkKeywordFromMap(
     return invalidToken(keyword);
 }
 
-Lexer::Lexer(const std::fstream &src) : input(), _position() {
+Lexer::Lexer(const std::fstream &src, const bool verbose) : input(), _position(), verbose(verbose) {
 
     // Read file and store its data it in a string_view
     std::ostringstream ss;
@@ -690,7 +693,7 @@ Token Lexer::get_next_token() {
             } else if (isalnum(curr_char)) {// token could potentially be a keyword
 
                 auto buffer = std::find_if_not(*_position, input.end(),
-                                               static_cast<int (*)(int)>(std::isalnum)); //Weird cast due to ambiguous overload
+                                               static_cast<int (*)(int)>(std::isalnum));//Weird cast due to ambiguous overload
                 std::string::iterator old_pos = *_position;
                 TokenLocation npos = _position.getLocation();
 

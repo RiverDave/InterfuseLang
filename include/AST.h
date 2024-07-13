@@ -16,9 +16,9 @@ class NExpression;
 class NVariableDeclaration;
 
 //ptr to vector of ptr of Node objects
-typedef std::vector<std::unique_ptr<NStatement>>StatementList;
-typedef std::vector<std::unique_ptr<NExpression>> ExpressionList;
-typedef std::vector<std::unique_ptr<NVariableDeclaration>> VariableList;
+typedef std::vector<std::shared_ptr<NStatement>> StatementList;
+typedef std::vector<std::shared_ptr<NExpression>> ExpressionList;
+typedef std::vector<std::shared_ptr<NVariableDeclaration>> VariableList;
 
 class Node {
 public:
@@ -56,60 +56,70 @@ public:
 
 class NExpressionStatement : public NStatement {
 public:
-    std::unique_ptr<NExpression> expression;
+    std::shared_ptr<NExpression> expression;
 
-    explicit NExpressionStatement(std::unique_ptr<NExpression>expression)
-        : expression(std::move(expression)) {}
+    explicit NExpressionStatement(std::shared_ptr<NExpression> expression)
+        : expression(expression) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NReturnStatement : public NStatement {
 public:
-    std::unique_ptr<NExpression> expression;// Optional since it could be a void function
+    std::shared_ptr<NExpression> expression;// Optional since it could be a void function
 
-    explicit NReturnStatement(std::unique_ptr<NExpression>expression = nullptr)
-        : expression(std::move(expression)) {}
+    explicit NReturnStatement(std::shared_ptr<NExpression> expression = nullptr)
+        : expression(expression) {}
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 // NOTE: Not used yet...
 class NWhileStatement : public NStatement {
 public:
-    std::unique_ptr<NExpression> condition;
-    std::unique_ptr<NBlock> loopBlock;
+    std::shared_ptr<NExpression> condition;
+    std::shared_ptr<NBlock> loopBlock;
 
-    NWhileStatement(std::unique_ptr<NExpression>condition, std::unique_ptr<NBlock>loopBlock)
-        : condition(std::move(condition)), loopBlock(std::move(loopBlock)) {}
+    NWhileStatement(std::shared_ptr<NExpression> condition, std::shared_ptr<NBlock> loopBlock)
+        : condition(condition), loopBlock(loopBlock) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NForStatement : public NStatement {
 public:
-    std::unique_ptr<NIdentifier> init;
-    std::unique_ptr<NExpression> condition;
-    std::unique_ptr<NExpression> iteration;
-    std::unique_ptr<NBlock> loopBlock;
+    std::shared_ptr<NIdentifier> init;
+    std::shared_ptr<NExpression> condition;
+    std::shared_ptr<NExpression> iteration;
+    std::shared_ptr<NBlock> loopBlock;
 
-    NForStatement(std::unique_ptr<NIdentifier>initialization, std::unique_ptr<NExpression>condition,
-                  std::unique_ptr<NExpression>iteration, std::unique_ptr<NBlock>loopBlock)
-        : init(std::move(initialization)), condition(std::move(condition)),
-          iteration(std::move(iteration)), loopBlock(std::move(loopBlock)) {}
+    NForStatement(std::shared_ptr<NIdentifier> initialization, std::shared_ptr<NExpression> condition,
+                  std::shared_ptr<NExpression> iteration, std::shared_ptr<NBlock> loopBlock)
+        : init(initialization), condition(condition),
+          iteration(iteration), loopBlock(loopBlock) {}
+
+    NForStatement(std::shared_ptr<NForStatement> forStmt)
+        : init(forStmt->init), condition(forStmt->condition),
+          iteration(forStmt->iteration), loopBlock(forStmt->loopBlock) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NFnDeclaration : public NStatement {
 public:
-    std::unique_ptr<NIdentifier> id;
-    std::unique_ptr<VariableList> params;
-    std::unique_ptr<NIdentifier> retType;
-    std::unique_ptr<NBlock> fnBlock;// This should be optional(in theory)
+    std::shared_ptr<NIdentifier> id;
+    std::shared_ptr<VariableList> params;
+    std::shared_ptr<NIdentifier> retType;
+    std::shared_ptr<NBlock> fnBlock;// This should be optional(in theory)
 
-    NFnDeclaration(std::unique_ptr<NIdentifier>id, std::unique_ptr<VariableList>args, std::unique_ptr<NIdentifier>type,
-                   std::unique_ptr<NBlock>fnBlock = nullptr)
-        : id(std::move(id)), params(std::move(args)), retType(std::move(type)), fnBlock(std::move(fnBlock)) {}
+    NFnDeclaration(std::shared_ptr<NIdentifier> id, std::shared_ptr<VariableList> args, std::shared_ptr<NIdentifier> type,
+                   std::shared_ptr<NBlock> fnBlock = nullptr)
+        : id(id), params(args), retType(type), fnBlock(fnBlock) {
+          assert(args);
+        }
+
+    NFnDeclaration(std::shared_ptr<NFnDeclaration> fnDecl)
+        : id(fnDecl->id), params(fnDecl->params), retType(fnDecl->retType), fnBlock(fnDecl->fnBlock) {
+    }
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
@@ -141,37 +151,37 @@ public:
 
 class NBinaryOperator : public NExpression {
 public:
-    std::unique_ptr<NExpression> lhs;
-    std::unique_ptr<Token> op;
-    std::unique_ptr<NExpression> rhs;
+    std::shared_ptr<NExpression> lhs;
+    std::shared_ptr<Token> op;
+    std::shared_ptr<NExpression> rhs;
 
-    explicit NBinaryOperator(std::unique_ptr<NExpression> lhs, Token *op, std::unique_ptr<NExpression> rhs)
-        : lhs(std::move(lhs)), op(op), rhs(std::move(rhs)) {}
+    explicit NBinaryOperator(std::shared_ptr<NExpression> lhs, Token *op, std::shared_ptr<NExpression> rhs)
+        : lhs(lhs), op(op), rhs(rhs) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NUnaryOperator : public NExpression {
 public:
-    std::unique_ptr<Token> op;
-    std::unique_ptr<NExpression> exp;
+    std::shared_ptr<Token> op;
+    std::shared_ptr<NExpression> exp;
 
-    explicit NUnaryOperator(Token *op, std::unique_ptr<NExpression>operand)
-        : op(op), exp(std::move(operand)) {}
+    explicit NUnaryOperator(Token *op, std::shared_ptr<NExpression> operand)
+        : op(op), exp(operand) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NFnCall : public NExpression {
 public:
-    const std::unique_ptr<NIdentifier> id;
-    std::unique_ptr<ExpressionList> arguments;
+    const std::shared_ptr<NIdentifier> id;
+    std::shared_ptr<ExpressionList> arguments;
 
-    NFnCall(std::unique_ptr<NIdentifier> id, std::unique_ptr<ExpressionList> args)
-        : id(std::move(id)), arguments(std::move(args)) {}
+    NFnCall(std::shared_ptr<NIdentifier> id, std::shared_ptr<ExpressionList> args)
+        : id(id), arguments(args) {}
 
     // No args func call
-    NFnCall(std::unique_ptr<NIdentifier> id) : id(std::move(id)) {}
+    NFnCall(std::shared_ptr<NIdentifier> id) : id(id) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
@@ -186,17 +196,17 @@ public:
 
 class NVariableDeclaration : public NStatement {
 public:
-    std::unique_ptr<NIdentifier> type;// Could be automatically infered
-    std::unique_ptr<NIdentifier> id;
-    std::unique_ptr<NExpression> assignmentExpr;
+    std::shared_ptr<NIdentifier> type;// Could be automatically infered
+    std::shared_ptr<NIdentifier> id;
+    std::shared_ptr<NExpression> assignmentExpr;
 
-    NVariableDeclaration(std::unique_ptr<NIdentifier> type, std::unique_ptr<NIdentifier> id,
-                         std::unique_ptr<NExpression> assignmentExpr = nullptr)
-        : type(std::move(type)), id(std::move(id)), assignmentExpr(std::move(assignmentExpr)) {}
+    NVariableDeclaration(std::shared_ptr<NIdentifier> type, std::shared_ptr<NIdentifier> id,
+                         std::shared_ptr<NExpression> assignmentExpr = nullptr)
+        : type(type), id(id), assignmentExpr(assignmentExpr) {}
 
     //Unusual constructor, used solely for bison
-    NVariableDeclaration(std::unique_ptr<NVariableDeclaration> varDecl)
-        : type(std::move(varDecl->type)), id(std::move(varDecl->id)), assignmentExpr(std::move(varDecl->assignmentExpr)) {}
+    NVariableDeclaration(std::shared_ptr<NVariableDeclaration> varDecl)
+        : type(varDecl->type), id(varDecl->id), assignmentExpr(varDecl->assignmentExpr) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
@@ -205,32 +215,35 @@ public:
 class NAssignment : public NExpression {
 
 public:
-    std::unique_ptr<NIdentifier> lhs;
-    std::unique_ptr<NExpression> rhs;
-    NAssignment(std::unique_ptr<NIdentifier> id, std::unique_ptr<NExpression> assignmentExpr)
-        : lhs(std::move(id)), rhs(std::move(assignmentExpr)) {}
+    std::shared_ptr<NIdentifier> lhs;
+    std::shared_ptr<NExpression> rhs;
+    NAssignment(std::shared_ptr<NIdentifier> id, std::shared_ptr<NExpression> assignmentExpr)
+        : lhs(id), rhs(assignmentExpr) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NElseStatement : public NStatement {
 public:
-    std::unique_ptr<NBlock> block;
+    std::shared_ptr<NBlock> block;
 
-    explicit NElseStatement(std::unique_ptr<NBlock> block) : block(std::move(block)) {}
+    explicit NElseStatement(std::shared_ptr<NBlock> block) : block(block) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
 class NIfStatement : public NStatement {
 public:
-  std::unique_ptr<NExpression> condition;
-  std::unique_ptr<NBlock> trueBlock;
-  std::unique_ptr<NElseStatement> falseBlock;// Optional, may be nullptr
-                                             //
-    NIfStatement(std::unique_ptr<NExpression> condition, std::unique_ptr<NBlock>trueBlock,
-                 std::unique_ptr<NElseStatement>falseBlock = nullptr)
-        : condition(std::move(condition)), trueBlock(std::move(trueBlock)), falseBlock(std::move(falseBlock)) {}
+    std::shared_ptr<NExpression> condition;
+    std::shared_ptr<NBlock> trueBlock;
+    std::shared_ptr<NElseStatement> falseBlock;// Optional, may be nullptr
+                                               //
+    NIfStatement(std::shared_ptr<NExpression> condition, std::shared_ptr<NBlock> trueBlock,
+                 std::shared_ptr<NElseStatement> falseBlock = nullptr)
+        : condition(condition), trueBlock(trueBlock), falseBlock(falseBlock) {}
+
+    NIfStatement(std::shared_ptr<NIfStatement> ifStmt)
+        : condition(ifStmt->condition), trueBlock(ifStmt->trueBlock), falseBlock(ifStmt->falseBlock) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
@@ -250,7 +263,7 @@ public:
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
 };
 
-inline std::unique_ptr<Node> LogError(const char *Str) {
+inline std::shared_ptr<Node> LogError(const char *Str) {
     fprintf(stderr, "Error: %s\n", Str);
     return nullptr;
 }

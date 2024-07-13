@@ -38,44 +38,66 @@ get_filename_component(FUSE_RUNNER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/scripts/fus
 add_definitions(-DFUSE_RUNNER_PATH="${FUSE_RUNNER_PATH}")
 
 
-find_package(BISON REQUIRED)
+# Macos only
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set(BISON_EXECUTABLE /opt/homebrew/opt/bison/bin/bison) # If not links to /usr/local/bin/bison (Really old version)
+endif()
+
+find_package(BISON 3.3 REQUIRED)
+include_directories(${BISON_INCLUDE_DIRS})
+
 BISON_TARGET(MyParser src/parser.y ${CMAKE_CURRENT_BINARY_DIR}/parser.cpp)
 
 
 
 
-link_directories(${LLVM_LIBRARY_DIR})
+# link_directories(${LLVM_LIBRARY_DIR})
+add_executable(interfuse ${SOURCES} ${BISON_MyParser_OUTPUTS})
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 
 
-set(LLVM_COMPONENTS # Not sure how accurate this is
+llvm_map_components_to_libnames(llvm_libs
     core
     executionengine
     mcjit
-    interpreter
+    # interpreter
     analysis
     native
-    scalaropts
-    instcombine
-    transformutils
-    ipo
-    instrumentation
-    codegen
-    bitwriter
-    mcdisassembler
-    mcparser
-    bitreader
-    asmparser
-    support
-    target
+    support 
+    irreader
+    # scalaropts
+    # instcombine
+    # transformutils
+    # ipo
+    # instrumentation
+    # codegen
+    # bitwriter
+    # mcdisassembler
+    # mcparser
+    # bitreader
+    # asmparser
+    # target
     passes
-)
-
-llvm_map_components_to_libnames(llvm_libs ${LLVM_COMPONENTS})
+  )
 
 
-add_executable(interfuse ${SOURCES} ${BISON_MyParser_OUTPUTS})
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  # Temporal solution since trying to link libs same as above crashes on execution
+
+execute_process(COMMAND llvm-config --libs all
+                OUTPUT_VARIABLE llvm_libs)
+message(STATUS "LLVM Libraries: ${llvm_libs}")
+string(REPLACE "\n" " " llvm_libs ${llvm_libs})
+string(STRIP "${llvm_libs}" llvm_libs)
+
+endif()
+
+
 target_include_directories(interfuse PRIVATE ${INCLUDE_PATH})
+
 
 
 # Add compiler flags
@@ -84,5 +106,5 @@ set(LLVM_ENABLE_ASSERTIONS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g")
 
-target_link_libraries(interfuse ${llvm_libs} ${targets})
+target_link_libraries(interfuse ${llvm_libs} )
 target_compile_options(interfuse PRIVATE -Wall -Wextra)

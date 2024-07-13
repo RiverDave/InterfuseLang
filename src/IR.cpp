@@ -353,7 +353,7 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context) {
     Value *last = nullptr;
 
     std::for_each(statements.begin(), statements.end(),
-                  [&](std::unique_ptr<NStatement>&stmt) {
+                  [&](std::shared_ptr<NStatement>&stmt) {
                       last = stmt->codeGen(context);
                   });
     return last;
@@ -681,7 +681,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
     if (!fn) {
         std::vector<Type *> argTypes;
         std::for_each(
-                params->begin(), params->end(), [&](std::unique_ptr<NVariableDeclaration>&var_decl) {
+                params->begin(), params->end(), [&](std::shared_ptr<NVariableDeclaration>&var_decl) {
                     argTypes.push_back(var_decl->type->getType(context));
 
                     if (var_decl->type->getType(context)->isVoidTy()) {

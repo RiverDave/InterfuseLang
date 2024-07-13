@@ -15,10 +15,12 @@ public:
     std::string input;
     IteratorWrapper _position;
     const char *file_name;
+    bool verbose;
 
     std::stack<Token> assert_stk;
 
-    explicit Lexer(const std::fstream &);
+
+    explicit Lexer(const std::fstream &, const bool=false);
 
     [[nodiscard]]
     Token get_next_token();

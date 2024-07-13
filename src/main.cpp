@@ -1,3 +1,4 @@
+#include "../build/parser.hpp"
 #include "AST.h"
 #include "IR.h"
 #include "Lexer.h"
@@ -5,11 +6,10 @@
 #include <FuseHandler.h>
 #include <algorithm>
 #include <iomanip>
-#include "../build/parser.hpp"
 
 // extern int yyparse();
 //extern void initializeLexer();
-extern std::unique_ptr<NBlock>programBlock;
+extern std::unique_ptr<NBlock> programBlock;
 extern FuseHandler fusehandler;
 
 //Path to .fuse file
@@ -24,10 +24,9 @@ static bool _verbose_mode = false;
 static bool wasm_compilation = false;
 
 int main(int argc, char **argv) {
-    const char* var = argv[0];
+    const char *var = argv[0];
     std::cout << var << "\n";
 
-    //TODO: Figure out this thing
     CLI::App app{"Fuse experimental Compiler"};
     argv = app.ensure_utf8(argv);
 
@@ -63,7 +62,11 @@ int main(int argc, char **argv) {
 
     std::cout << "Compiling " << _global_file_path << std::endl;
 
-        try {
+    try {
+
+        yy::fuse_parser parser;
+        if (parser.parse() == 0) {
+
 
             CodeGenContext context(_verbose_mode, _global_file_path, _binary_name, wasm_compilation);
             context.setTargets();
@@ -77,11 +80,12 @@ int main(int argc, char **argv) {
                 context.runCode();
                 std::cout << std::string(80, '=') << std::endl;
             }
-
-
-        } catch (const std::runtime_error &e) {
-            std::cerr << e.what() << std::flush;
         }
+
+
+    } catch (const std::runtime_error &e) {
+        std::cerr << e.what() << std::flush;
+    }
 
 
     //cleanup
