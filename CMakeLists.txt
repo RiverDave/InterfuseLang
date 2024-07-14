@@ -103,8 +103,8 @@ target_include_directories(interfuse PRIVATE ${INCLUDE_PATH})
 # Add compiler flags
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(LLVM_ENABLE_ASSERTIONS ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O0")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g -O0")
 
 target_link_libraries(interfuse ${llvm_libs} )
 target_compile_options(interfuse PRIVATE -Wall -Wextra)

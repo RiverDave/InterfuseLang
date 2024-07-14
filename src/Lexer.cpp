@@ -86,165 +86,165 @@ int yylex(yy::fuse_parser::semantic_type *yylval) {
     switch (token.getType()) {
 
         case NUMBER:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKNUMBER;
 
         case DOUBLE:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKDOUBLE;
 
         case OPERATOR_PLUS:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKPLUS;
 
         case OPERATOR_MINUS:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKMINUS;
 
         case OPERATOR_MULTIPLY:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKMULT;
 
         case OPERATOR_DIVIDE:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKDIV;
 
         case KEYWORD_RET:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKRETURN;
 
         case CURLY_BRACKET_OPEN:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKCURLYOPEN;
 
         case CURLY_BRACKET_CLOSE:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKCURLYCLOSE;
 
         case PARENTHESIS_OPEN:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKPAROPEN;
 
         case PARENTHESIS_CLOSE:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKPARCLOSE;
 
         case COMMA:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKCOMMA;
 
         case DOT:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKDOT;
 
         case COLON:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKCOLON;
 
         case RANGE_INCLUSIVE:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKRANGE_INCLUSIVE;
 
         case ARROW:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKARROW;
 
         case LINEBREAK:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKLINEBREAK;
 
         case ASSIGNMENT:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKASSIGNMENT;
 
         case IDENTIFIER:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKIDENTIFIER;
 
         case KEYWORD_PROCEDURE:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKFUNCTION_KEY;
 
         case DATA_TYPE:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKDATATYPE;
 
         case KEYWORD_IF:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKIF;
 
         case KEYWORD_ELSE:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKELSE;
 
         case KEYWORD_ELSE_IF:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKELSEIF;
 
         case KEYWORD_LOOP_FOR:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKFOR;
 
         case KEYWORD_LOOP_IN:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKIN;
 
         case KEYWORD_LOOP_BREAK:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKBREAK;
 
         // operator stuff
         case OPERATOR_EQUALS:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKEQUAL;
 
         case OPERATOR_LESS_THAN:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKLESS;
 
         case OPERATOR_LESS_THAN_EQUALS:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKLESS_EQUAL;
 
         case OPERATOR_GREATER_THAN:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKGREATER;
 
         case OPERATOR_GREATER_THAN_EQUALS:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKGREATER_EQUAL;
 
         case OPERATOR_NOT_EQUALS:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKNOT_EQUAL;
 
         case OPERATOR_AND:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKAND;
 
         case OPERATOR_OR:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKOR;
 
         case OPERATOR_NEGATION:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKNEGATION;
 
         case KEYWORD_LOOP_CONTINUE:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKCONT;
 
         case OPERATOR_MODULO:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKMOD;
 
         case STRING:
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKSTRING;
 
         case INVALID:
             logError(token, "Invalid token");
-            yylval->as<Token *>() = new Token(token);
+            yylval->as<std::shared_ptr<Token>>() = std::make_shared<Token>(token);
             return yy::fuse_parser::token::TKINVALID;
 
         default:

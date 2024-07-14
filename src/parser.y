@@ -21,26 +21,6 @@
 
 %code{
 
-/*
-void yy::fuse_parser::error (const string& m,
-
-std::vector<std::unique_ptr<Token>> err_tokens = std::vector<std::unique_ptr<Token>>()) {
-
-    if (err_tokens.size() >= 1){
-
-      std::cerr << "INTERFUSE ERROR: " <<  err;
-      TokenLocation err_range = fusehandler.getErrorLocation(err_tokens);
-      std::cout << " At line: " << err_range << std::endl;
-     }else{
-      std::cerr << "INTERFUSE Untracked ERROR found -> " <<  err << std::endl;;
-      getErrorCnt();
-
-    }
-
-  fusehandler.err_cnt++;
-}
-*/
-
     std::shared_ptr<NBlock> programBlock;
     FuseHandler fusehandler;
     int yylex(yy::fuse_parser::semantic_type* yylval);
@@ -54,31 +34,28 @@ std::vector<std::unique_ptr<Token>> err_tokens = std::vector<std::unique_ptr<Tok
 
 // These are specified in Token.h as well
 
-%token<Token*> TKNUMBER TKDOUBLE
-%token<Token*> TKSTRING
-%token<Token*> TKPLUS TKMINUS TKMULT TKDIV TKMOD
-%token<Token*> TKRETURN 
-%token<Token*> TKCOMMA TKDOT TKARROW TKCOLON TKRANGE_INCLUSIVE 
-%token<Token*> TKLINEBREAK  //statement delimiter
-%token<Token*> TKASSIGNMENT 
+%token<std::shared_ptr<Token>> TKNUMBER TKDOUBLE
+%token<std::shared_ptr<Token>> TKSTRING
+%token<std::shared_ptr<Token>> TKPLUS TKMINUS TKMULT TKDIV TKMOD
+%token<std::shared_ptr<Token>> TKRETURN 
+%token<std::shared_ptr<Token>> TKCOMMA TKDOT TKARROW TKCOLON TKRANGE_INCLUSIVE 
+%token<std::shared_ptr<Token>> TKLINEBREAK  //statement delimiter
+%token<std::shared_ptr<Token>> TKASSIGNMENT 
 //comparison operators
-%token<Token*> TKLESS TKGREATER TKLESS_EQUAL TKGREATER_EQUAL TKEQUAL TKNOT_EQUAL
+%token<std::shared_ptr<Token>> TKLESS TKGREATER TKLESS_EQUAL TKGREATER_EQUAL TKEQUAL TKNOT_EQUAL
 // Loop stuff
-%token<Token*> TKAND TKOR
+%token<std::shared_ptr<Token>> TKAND TKOR
+%token<std::shared_ptr<Token>> TKNEGATION
+%token<std::shared_ptr<Token>> TKIDENTIFIER 
+%token<std::shared_ptr<Token>> TKDATATYPE 
+%token<std::shared_ptr<Token>> TKCURLYOPEN TKCURLYCLOSE
+%token<std::shared_ptr<Token>> TKPAROPEN TKPARCLOSE
+%token<std::shared_ptr<Token>> TKFUNCTION_KEY
+%token<std::shared_ptr<Token>> TKIF TKELSE TKELSEIF 
+%token<std::shared_ptr<Token>> TKFOR TKIN TKBREAK TKCONT
+%token<std::shared_ptr<Token>> TKINVALID
+%type<std::shared_ptr<Token>> comparison negation binary_op
 
-%token<Token*> TKNEGATION
-
-%token<Token*> TKIDENTIFIER 
-%token<Token*> TKDATATYPE 
-%token<Token*> TKCURLYOPEN TKCURLYCLOSE
-%token<Token*> TKPAROPEN TKPARCLOSE
-%token<Token*> TKFUNCTION_KEY
-%token<Token*> TKIF TKELSE TKELSEIF 
-%token<Token*> TKFOR TKIN TKBREAK TKCONT
-%token<Token*> TKINVALID
-
-
-%type<Token*> comparison negation binary_op
 %type<std::shared_ptr<NIdentifier>> id
 %type<std::shared_ptr<VariableList>> fn_args
 %type<shared_ptr<vector<shared_ptr<NExpression>>>> fn_call_args
@@ -496,8 +473,6 @@ expr:
         $$ = std::make_shared<NBinaryOperator>($1, $2, $3);
       }
 
-      //delete $2;
-
     } |
 
     TKPAROPEN expr TKPARCLOSE
@@ -528,7 +503,7 @@ expr:
         YYABORT;
 
       } else {
-        $$ = std::make_shared<NUnaryOperator>($1, ($2));
+        $$ = std::make_shared<NUnaryOperator>($1, $2);
       }
     }
     ;

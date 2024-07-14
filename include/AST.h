@@ -114,8 +114,8 @@ public:
     NFnDeclaration(std::shared_ptr<NIdentifier> id, std::shared_ptr<VariableList> args, std::shared_ptr<NIdentifier> type,
                    std::shared_ptr<NBlock> fnBlock = nullptr)
         : id(id), params(args), retType(type), fnBlock(fnBlock) {
-          assert(args);
-        }
+        assert(args);
+    }
 
     NFnDeclaration(std::shared_ptr<NFnDeclaration> fnDecl)
         : id(fnDecl->id), params(fnDecl->params), retType(fnDecl->retType), fnBlock(fnDecl->fnBlock) {
@@ -155,7 +155,7 @@ public:
     std::shared_ptr<Token> op;
     std::shared_ptr<NExpression> rhs;
 
-    explicit NBinaryOperator(std::shared_ptr<NExpression> lhs, Token *op, std::shared_ptr<NExpression> rhs)
+    explicit NBinaryOperator(std::shared_ptr<NExpression> lhs, std::shared_ptr<Token> op, std::shared_ptr<NExpression> rhs)
         : lhs(lhs), op(op), rhs(rhs) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
@@ -166,7 +166,7 @@ public:
     std::shared_ptr<Token> op;
     std::shared_ptr<NExpression> exp;
 
-    explicit NUnaryOperator(Token *op, std::shared_ptr<NExpression> operand)
+    explicit NUnaryOperator(std::shared_ptr<Token> op, std::shared_ptr<NExpression> operand)
         : op(op), exp(operand) {}
 
     virtual llvm::Value *codeGen(CodeGenContext &context) override;
