@@ -1,18 +1,21 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(interfuse)
 find_package(LLVM REQUIRED CONFIG)
-find_package(functions_framework_cpp REQUIRED) # Used for service stuff(gcloud)
+find_package(functions_framework_cpp CONFIG REQUIRED)
 find_package(Threads)
+
+
 
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 set(PACKAGE_BUGREPORT
     "https://github.com/GoogleCloudPlatform/cpp-samples/issues")
-project(cpp-samples-cloud-run-hello-world CXX)
 
 
 
 include_directories(${LLVM_INCLUDE_DIRS})
+# target_include_directories(interfuse PRIVATE ${functions_framework_cpp_INCLUDE_DIRS})
+
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 set (CMAKE_BUILD_TYPE Debug)
@@ -115,11 +118,9 @@ set(LLVM_ENABLE_ASSERTIONS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O0")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g -O0")
 
-target_link_libraries(interfuse ${llvm_libs} functions-framework-cpp::framework)
-
-
+# install(TARGETS cloud_run_hello RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+target_link_libraries(interfuse PRIVATE functions-framework-cpp::framework ${llvm_libs})
 target_compile_options(interfuse PRIVATE -Wall -Wextra)
 
 include(GNUInstallDirs)
-install(TARGETS cloud_run_hello RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
+install(TARGETS interfuse RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

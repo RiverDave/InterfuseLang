@@ -6,7 +6,6 @@
     "Interfuse Language Compiler"
   ],
   "dependencies": [
-    "functions-framework-cpp",
-    "llvm"
+    "functions-framework-cpp"
   ]
 }

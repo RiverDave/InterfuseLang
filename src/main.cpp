@@ -4,8 +4,8 @@
 #include "Lexer.h"
 #include <CLI11.hpp>//CLI parser
 #include <FuseHandler.h>
-#include <algorithm>
 #include <iomanip>
+#include <google/cloud/functions/framework.h>
 
 // extern int yyparse();
 //extern void initializeLexer();
@@ -22,6 +22,21 @@ using namespace yy;
 //TODO: flag that outputs not just the result of the program but also the IR generated llvm code.
 static bool _verbose_mode = false;
 static bool wasm_compilation = false;
+
+namespace gcf = ::google::cloud::functions;
+
+auto hello_world_http() {
+  return gcf::MakeFunction([](gcf::HttpRequest const& /*request*/) {
+    std::string greeting = "Hello ";
+    auto const* target = std::getenv("TARGET");
+    greeting += target == nullptr ? "World" : target;
+    greeting += "\n";
+
+    return gcf::HttpResponse{}
+        .set_header("Content-Type", "text/plain")
+        .set_payload(greeting);
+  });
+}
 
 int main(int argc, char **argv) {
     const char *var = argv[0];
@@ -88,9 +103,7 @@ int main(int argc, char **argv) {
     }
 
 
-    //cleanup
-    delete lexerInstance;
+    
 
-
-    return 0;
+      return gcf::Run(argc, argv, hello_world_http());
 }

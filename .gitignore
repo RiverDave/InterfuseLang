@@ -5,6 +5,8 @@ build/*
 .idea/
 .idea/*
 .vscode/
+vcpkg_installed/
+vcpkg-manifest-install.log
 
 .cache
 .cache/*
