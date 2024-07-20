@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(interfuse)
 find_package(LLVM REQUIRED CONFIG)
-find_package(functions_framework_cpp CONFIG REQUIRED)
-find_package(Threads)
 
 
 
@@ -120,7 +118,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O0")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g -O0")
 
 # install(TARGETS cloud_run_hello RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_link_libraries(interfuse PRIVATE functions-framework-cpp::framework ${llvm_libs})
+target_link_libraries(interfuse PRIVATE ${llvm_libs})
 target_compile_options(interfuse PRIVATE -Wall -Wextra)
 
 include(GNUInstallDirs)

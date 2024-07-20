@@ -35,8 +35,8 @@ RUN apt-get update && \
 #     && ./bootstrap-vcpkg.sh -disableMetrics
 
 # Copy the source code to /v/source and compile it.
-# COPY . /v/source
-# WORKDIR /v/source
+COPY . /v/source
+WORKDIR /v/source
 
 #RUN /usr/local/vcpkg/vcpkg install
 
