@@ -5,7 +5,7 @@
 #include <sstream>
 #include <string>
 
-#include "../build/parser.hpp"
+#include "parser.hpp"
 
 extern FuseHandler fusehandler;
 

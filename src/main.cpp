@@ -1,4 +1,4 @@
-#include "../build/parser.hpp"
+#include "parser.hpp"
 #include "AST.h"
 #include "IR.h"
 #include "Lexer.h"
@@ -39,68 +39,68 @@ auto hello_world_http() {
 }
 
 int main(int argc, char **argv) {
-    const char *var = argv[0];
-    std::cout << var << "\n";
-
-    CLI::App app{"Fuse experimental Compiler"};
-    argv = app.ensure_utf8(argv);
-
-    app.add_option("source", _global_file_path, "Path to .fuse file")
-            ->required()
-            ->check(CLI::ExistingFile)
-            ->check([](const std::string &filename) {// -> Custom validator, passed as lambda/functor
-                const std::string &extension = ".fuse";
-                if (filename.length() >= extension.length()) {
-                    //Pass lenghts & content
-                    if (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension)) {
-                        return std::string();// -> Success
-                    } else {
-
-                        return std::string("File must have .fuse extension");
-                    }
-                }
-
-                return std::string("File must have .fuse extension");
-            });
-
-
-    app.add_flag("-v,--verbose", _verbose_mode, "Toggle Verbose mode");
-
-    //Wasm flag
-    app.add_flag("-w, --wasm", wasm_compilation, "Generate wasm files");
-
-    app.add_option("binary", _binary_name, "Generated binary name")
-            ->required();
-
-
-    CLI11_PARSE(app, argc, argv);
-
-    std::cout << "Compiling " << _global_file_path << std::endl;
-
-    try {
-
-        yy::fuse_parser parser;
-        if (parser.parse() == 0) {
-
-
-            CodeGenContext context(_verbose_mode, _global_file_path, _binary_name, wasm_compilation);
-            context.setTargets();
-            context.emitIR(*programBlock);
-            context.dumpIR();
-
-            if (_verbose_mode) {
-                std::cout << std::endl;
-                std::cout << std::setw(40) << std::string("OUTPUT") << std::endl;
-                std::cout << std::string(80, '=') << std::endl;
-                context.runCode();
-                std::cout << std::string(80, '=') << std::endl;
-            }
-        }
-
-
-    } catch (const std::runtime_error &e) {
-        std::cerr << e.what() << std::flush;
-    }
+    // const char *var = argv[0];
+    // std::cout << var << "\n";
+    //
+    // CLI::App app{"Fuse experimental Compiler"};
+    // argv = app.ensure_utf8(argv);
+    //
+    // app.add_option("source", _global_file_path, "Path to .fuse file")
+    //         ->required()
+    //         ->check(CLI::ExistingFile)
+    //         ->check([](const std::string &filename) {// -> Custom validator, passed as lambda/functor
+    //             const std::string &extension = ".fuse";
+    //             if (filename.length() >= extension.length()) {
+    //                 //Pass lenghts & content
+    //                 if (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension)) {
+    //                     return std::string();// -> Success
+    //                 } else {
+    //
+    //                     return std::string("File must have .fuse extension");
+    //                 }
+    //             }
+    //
+    //             return std::string("File must have .fuse extension");
+    //         });
+    //
+    //
+    // app.add_flag("-v,--verbose", _verbose_mode, "Toggle Verbose mode");
+    //
+    // //Wasm flag
+    // app.add_flag("-w, --wasm", wasm_compilation, "Generate wasm files");
+    //
+    // app.add_option("binary", _binary_name, "Generated binary name")
+    //         ->required();
+    //
+    //
+    // CLI11_PARSE(app, argc, argv);
+    //
+    // std::cout << "Compiling " << _global_file_path << std::endl;
+    //
+    // try {
+    //
+    //     yy::fuse_parser parser;
+    //     if (parser.parse() == 0) {
+    //
+    //
+    //         CodeGenContext context(_verbose_mode, _global_file_path, _binary_name, wasm_compilation);
+    //         context.setTargets();
+    //         context.emitIR(*programBlock);
+    //         context.dumpIR();
+    //
+    //         if (_verbose_mode) {
+    //             std::cout << std::endl;
+    //             std::cout << std::setw(40) << std::string("OUTPUT") << std::endl;
+    //             std::cout << std::string(80, '=') << std::endl;
+    //             context.runCode();
+    //             std::cout << std::string(80, '=') << std::endl;
+    //         }
+    //     }
+    //
+    //
+    // } catch (const std::runtime_error &e) {
+    //     std::cerr << e.what() << std::flush;
+    // }
 
 
     

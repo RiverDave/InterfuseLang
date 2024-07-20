@@ -43,6 +43,7 @@ set(SOURCES
 message(STATUS "SOURCES: ${SOURCES}")
 
 set(INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include")
+set(BUILD_PATH "${CMAKE_CURRENT_SOURCE_DIR}/build")
 
 #Path stuff, automation
 get_filename_component(FUSE_RUNNER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/scripts/fuse_runner.sh" ABSOLUTE)
@@ -59,8 +60,7 @@ endif()
 find_package(BISON 3.3 REQUIRED)
 include_directories(${BISON_INCLUDE_DIRS})
 
-BISON_TARGET(MyParser src/parser.y ${CMAKE_CURRENT_BINARY_DIR}/parser.cpp)
-
+BISON_TARGET(MyParser src/parser.y ${INCLUDE_PATH}/parser.cpp)
 
 
 
