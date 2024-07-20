@@ -37,6 +37,7 @@ set(SOURCES
             src/IteratorInterface.cpp
             src/parser.y
             src/FuseHandler.cpp
+            include/httplib.h
 
 )
 

@@ -1,11 +1,13 @@
-#include "parser.hpp"
 #include "AST.h"
 #include "IR.h"
 #include "Lexer.h"
+#include "parser.hpp"
 #include <CLI11.hpp>//CLI parser
 #include <FuseHandler.h>
+#include <httplib.h>
 #include <iomanip>
-#include <google/cloud/functions/framework.h>
+
+#define CPPHTTPLIB_OPENSSL_SUPPORT
 
 // extern int yyparse();
 //extern void initializeLexer();
@@ -23,59 +25,8 @@ using namespace yy;
 static bool _verbose_mode = false;
 static bool wasm_compilation = false;
 
-namespace gcf = ::google::cloud::functions;
-
-auto hello_world_http() {
-  return gcf::MakeFunction([](gcf::HttpRequest const& /*request*/) {
-    std::string greeting = "Hello ";
-    auto const* target = std::getenv("TARGET");
-    greeting += target == nullptr ? "World" : target;
-    greeting += "\n";
-
-    return gcf::HttpResponse{}
-        .set_header("Content-Type", "text/plain")
-        .set_payload(greeting);
-  });
-}
 
 int main(int argc, char **argv) {
-    // const char *var = argv[0];
-    // std::cout << var << "\n";
-    //
-    // CLI::App app{"Fuse experimental Compiler"};
-    // argv = app.ensure_utf8(argv);
-    //
-    // app.add_option("source", _global_file_path, "Path to .fuse file")
-    //         ->required()
-    //         ->check(CLI::ExistingFile)
-    //         ->check([](const std::string &filename) {// -> Custom validator, passed as lambda/functor
-    //             const std::string &extension = ".fuse";
-    //             if (filename.length() >= extension.length()) {
-    //                 //Pass lenghts & content
-    //                 if (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension)) {
-    //                     return std::string();// -> Success
-    //                 } else {
-    //
-    //                     return std::string("File must have .fuse extension");
-    //                 }
-    //             }
-    //
-    //             return std::string("File must have .fuse extension");
-    //         });
-    //
-    //
-    // app.add_flag("-v,--verbose", _verbose_mode, "Toggle Verbose mode");
-    //
-    // //Wasm flag
-    // app.add_flag("-w, --wasm", wasm_compilation, "Generate wasm files");
-    //
-    // app.add_option("binary", _binary_name, "Generated binary name")
-    //         ->required();
-    //
-    //
-    // CLI11_PARSE(app, argc, argv);
-    //
-    // std::cout << "Compiling " << _global_file_path << std::endl;
     //
     // try {
     //
@@ -103,7 +54,22 @@ int main(int argc, char **argv) {
     // }
 
 
-    
+    // HTTP
+    httplib::Server svr;
 
-      return gcf::Run(argc, argv, hello_world_http());
+
+    svr.Get("/", [](const httplib::Request &, httplib::Response &res) {
+        res.set_content("Hello World!", "text/plain");
+    });
+
+
+    svr.Get("/hi", [](const httplib::Request &, httplib::Response &res) {
+        res.set_content("Hello Rolex", "text/plain");
+    });
+
+
+    svr.listen("0.0.0.0", 8080);
+
+
+    return 0;
 }
