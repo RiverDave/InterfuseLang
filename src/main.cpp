@@ -23,52 +23,91 @@ using namespace yy;
 
 //TODO: flag that outputs not just the result of the program but also the IR generated llvm code.
 static bool _verbose_mode = false;
-static bool wasm_compilation = false;
+static bool binary_compilation = false;
 
 
 int main(int argc, char **argv) {
-    //
-    // try {
-    //
-    //     yy::fuse_parser parser;
-    //     if (parser.parse() == 0) {
-    //
-    //
-    //         CodeGenContext context(_verbose_mode, _global_file_path, _binary_name, wasm_compilation);
-    //         context.setTargets();
-    //         context.emitIR(*programBlock);
-    //         context.dumpIR();
-    //
-    //         if (_verbose_mode) {
-    //             std::cout << std::endl;
-    //             std::cout << std::setw(40) << std::string("OUTPUT") << std::endl;
-    //             std::cout << std::string(80, '=') << std::endl;
-    //             context.runCode();
-    //             std::cout << std::string(80, '=') << std::endl;
-    //         }
-    //     }
-    //
-    //
-    // } catch (const std::runtime_error &e) {
-    //     std::cerr << e.what() << std::flush;
-    // }
+    const char *var = argv[0];
+    std::cout << var << "\n";
+
+    CLI::App app{"Fuse experimental Compiler"};
+    argv = app.ensure_utf8(argv);
+
+    app.add_option("source", _global_file_path, "Path to .fuse file")
+            ->required()
+            ->check(CLI::ExistingFile)
+            ->check([](const std::string &filename) {// -> Custom validator, passed as lambda/functor
+                const std::string &extension = ".fuse";
+                if (filename.length() >= extension.length()) {
+                    //Pass lenghts & content
+                    if (0 == filename.compare(filename.length() - extension.length(), extension.length(), extension)) {
+                        return std::string();// -> Success
+                    } else {
+
+                        return std::string("File must have .fuse extension");
+                    }
+                }
+
+                return std::string("File must have .fuse extension");
+            });
 
 
-    // HTTP
-    httplib::Server svr;
+    app.add_flag("-v,--verbose", _verbose_mode, "Toggle Verbose mode");
+
+    app.add_flag("-o,--binary", binary_compilation, "Compile to binary file");
+
+    CLI::Option *opt = app.add_option("bn-name", _binary_name, "Generated binary name");
+    // opt->needs("-o"); Could use this but doesn't provide a good error message
+
+    app.parse(argc, argv);
+
+    if (binary_compilation) {
+        if (!opt->count()) {
+            std::cerr << "INTERFUSE: -o flag requires the binary name to compile.\n";
+            exit(0);
+        }
+    }
+
+    //Wasm flag
 
 
-    svr.Get("/", [](const httplib::Request &, httplib::Response &res) {
-        res.set_content("Hello World!", "text/plain");
-    });
+    CLI11_PARSE(app, argc, argv);
+
+    std::cout << "Compiling " << _global_file_path << std::endl;
+
+    try {
+
+        yy::fuse_parser parser;
+        if (parser.parse() == 0) {
 
 
-    svr.Get("/hi", [](const httplib::Request &, httplib::Response &res) {
-        res.set_content("Hello Rolex", "text/plain");
-    });
+            CodeGenContext context(_verbose_mode, binary_compilation, _global_file_path, _binary_name);
+            context.setTargets();
+            context.emitIR(*programBlock);
 
 
-    svr.listen("0.0.0.0", 8080);
+            if (context.binary_compilation)
+                context.dumpIR();
+
+            if (_verbose_mode) {
+                std::cout << std::endl;
+                std::cout << std::setw(40) << std::string("OUTPUT") << std::endl;
+                std::cout << std::string(80, '=') << std::endl;
+                context.runCode();
+                std::cout << std::string(80, '=') << std::endl;
+            }else{
+              context.runCode();
+            }
+        }
+
+
+    } catch (const std::runtime_error &e) {
+        std::cerr << e.what() << std::flush;
+    }
+
+
+    //cleanup
+    delete lexerInstance;
 
 
     return 0;

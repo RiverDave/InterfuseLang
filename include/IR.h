@@ -118,11 +118,11 @@ public:
     bool exit_loop = false;
     std::string dump_file_name;
     const std::string binary_name;
-    bool wasm_compilation;
+    bool binary_compilation;
 
     llvm::Function *globalFn;// Entry point function aka 'Main'
 
-    CodeGenContext(bool, std::string, std::string, bool);
+    CodeGenContext(bool, bool, std::string, std::string);
     void emitIR(NBlock &srcRoot);
     void setTargets();
     llvm::GenericValue runCode();

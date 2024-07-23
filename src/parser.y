@@ -266,12 +266,12 @@ fn_args:
 
           $$ = std::make_shared<std::vector<std::shared_ptr<NVariableDeclaration>>>();//aka var list
 
-          std::cout << "Adding var decl to fn args #1" << std::endl;
+          //std::cout << "Adding var decl to fn args #1" << std::endl;
           $$->push_back($1);
     } |
     fn_args TKCOMMA var_decl
     {
-          std::cout << "Adding var decl to fn args #2" << std::endl;
+          //std::cout << "Adding var decl to fn args #2" << std::endl;
           $1->push_back($3);
           $$ = $1;
     }

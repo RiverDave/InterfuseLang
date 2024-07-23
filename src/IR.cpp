@@ -25,8 +25,9 @@ using namespace llvm;
 
 extern const char *_global_file_path;
 
-CodeGenContext::CodeGenContext(bool verboseMode, std::string fname, std::string exec_name, bool wasm_mode)
-    : blocks(), _verbose_mode(verboseMode), dump_file_name(fname), binary_name(exec_name), wasm_compilation(wasm_mode) {
+CodeGenContext::CodeGenContext(bool verboseMode, bool binary, std::string fname, std::string exec_name)
+    : blocks(), _verbose_mode(verboseMode), dump_file_name(fname), binary_name(exec_name),
+      binary_compilation(binary) {
     // Init core llvm
     TheContext = std::make_unique<llvm::LLVMContext>();
     TheModule = std::make_unique<llvm::Module>("Pourer", *TheContext);
@@ -34,7 +35,6 @@ CodeGenContext::CodeGenContext(bool verboseMode, std::string fname, std::string 
 
 
     setTargets();
-
 
 
     Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
@@ -107,7 +107,7 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
 
         //Output code if requested
         if (_verbose_mode) {
-            std::cout << "Printing IR code\n";
+            std::cout << "Printing IR code...\n";
             TheModule->print(llvm::errs(), nullptr);
         }
 
@@ -177,15 +177,9 @@ void CodeGenContext::setTargets() {
     LLVMInitializeNativeAsmParser();
 
 
-    if (wasm_compilation) {
-        std::string TargetTripleStr = "wasm32-unknown-unknown-wasm";
-        std::cout << "COMPILING TO WASM " << TargetTripleStr << std::endl;
-        TheModule->setTargetTriple(TargetTripleStr);
-    } else {
 
-        auto TargetTriple = LLVMGetDefaultTargetTriple(); //Should run on every llvm capable system (theorically)
+        auto TargetTriple = LLVMGetDefaultTargetTriple();//Should run on every llvm capable system (theorically)
         TheModule->setTargetTriple(TargetTriple);
-    }
 }
 
 int CodeGenContext::dumpIR() {
@@ -214,10 +208,6 @@ int CodeGenContext::dumpIR() {
     }
 
     std::string wasm_ext;
-
-    if (wasm_compilation) {
-        wasm_ext = "-w";
-    }
 
     //Dump ir to .ll file/ Creates file
     TheModule->print(OS, nullptr);
@@ -353,7 +343,7 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context) {
     Value *last = nullptr;
 
     std::for_each(statements.begin(), statements.end(),
-                  [&](std::shared_ptr<NStatement>&stmt) {
+                  [&](std::shared_ptr<NStatement> &stmt) {
                       last = stmt->codeGen(context);
                   });
     return last;
@@ -681,7 +671,7 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
     if (!fn) {
         std::vector<Type *> argTypes;
         std::for_each(
-                params->begin(), params->end(), [&](std::shared_ptr<NVariableDeclaration>&var_decl) {
+                params->begin(), params->end(), [&](std::shared_ptr<NVariableDeclaration> &var_decl) {
                     argTypes.push_back(var_decl->type->getType(context));
 
                     if (var_decl->type->getType(context)->isVoidTy()) {
@@ -720,8 +710,8 @@ llvm::Value *NFnDeclaration::codeGen(CodeGenContext &context) {
     if (fnBlock && fn) {
         size_t i = 0;
         for (auto &arg: fn->args()) {
-          //What a funny syntax!
-          //Dereference ptr and access its val
+            //What a funny syntax!
+            //Dereference ptr and access its val
             arg.setName((*params)[i++]->id->name);
         }
 
@@ -1133,7 +1123,7 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context) {
     // bool break_loop = false;
 
     Value *last = nullptr;
-    for (auto& stmt: loopBlock->statements) {
+    for (auto &stmt: loopBlock->statements) {
         last = stmt->codeGen(context);
         if (last && (llvm::dyn_cast<llvm::ReturnInst>(last) || llvm::dyn_cast<llvm::BranchInst>(last))) {
             break;
