@@ -5,22 +5,23 @@
 #include <sstream>
 #include <string>
 
+#include "location.hh"
 #include "parser.hpp"
 
-extern FuseHandler fusehandler;
+
+bool _verbose_mode = false;
 
 
 inline void logError(Token tok, const std::string &msg) {
-    std::cerr << "INTERFUSE ERROR: " << msg << " at " << tok.getLocation() << std::endl;
-    fusehandler.err_cnt++;
+    // std::cerr << "INTERFUSE ERROR: " << msg << " at " << tok.getLocation() << std::endl;
 }
 
 // BISON Interface
 
-int yylex(yy::fuse_parser::semantic_type *yylval) {
+int yylex(yy::fuse_parser::semantic_type *yylval, TokenLocation *yylloc) {
     if (!lexerInstance) {
         if (!_global_file_path.empty()) {
-            lexerInstance = new Lexer(std::fstream(_global_file_path));
+            lexerInstance = new Lexer(std::fstream(_global_file_path), _verbose_mode);
         }
     }
 
@@ -31,10 +32,11 @@ int yylex(yy::fuse_parser::semantic_type *yylval) {
     //Aside from 1 char tokens, multiple char token locations were set in
     //the get_next_token function
 
+
     if (token.getValue().size() == 1 && token.getType() != IDENTIFIER && token.getType() != SPACE) {
-        size_t nval = lexerInstance->_position.getLocation().range.first - 1;
+        size_t nval = lexerInstance->_position.getLocation().begin - 1;
         TokenLocation loc = lexerInstance->_position.getLocation();
-        loc.range.first = nval;
+        loc.begin = nval;
         token.setLocation(loc);
     }
 
@@ -47,21 +49,21 @@ int yylex(yy::fuse_parser::semantic_type *yylval) {
         if (*lexerInstance->_position == lexerInstance->input.end()) {
 
             // std::cout << "Lexing finished: " << std::endl;
-            // std::cout << " Line: " << lexerInstance->_position.getLocation().line << " Col: " << lexerInstance->_position.getLocation().range.first << std::endl;
+            // std::cout << " Line: " << lexerInstance->_position.getLocation().line << " Col: " << lexerInstance->_position.getLocation().begin << std::endl;
             return 0;
         }
 
         token = lexerInstance->get_next_token();
         //TODO: fix this mess of code
         if (token.getValue().size() == 1 && token.getType() != IDENTIFIER && token.getType() != SPACE) {
-            size_t nval = lexerInstance->_position.getLocation().range.first - 1;
+            size_t nval = lexerInstance->_position.getLocation().begin - 1;
             TokenLocation loc = lexerInstance->_position.getLocation();
-            loc.range.first = nval;
+            loc.begin = nval;
             token.setLocation(loc);
 
             //Hardcoded af, Need to FIX
-            if (loc.range.first != 1)
-                lexerInstance->_position.getLocation().range.first++;
+            if (loc.begin != 1)
+                lexerInstance->_position.getLocation().begin++;
         }
     }
 
@@ -81,6 +83,8 @@ int yylex(yy::fuse_parser::semantic_type *yylval) {
 
 
     lexerInstance->assert_stk.push(token);
+    *yylloc = token.getLocation();
+
 
     // Token types defined in bison file
     switch (token.getType()) {
@@ -382,7 +386,7 @@ Token Lexer::handle_operator(char current, char next, TOKEN_TYPE current_op, TOK
     if (next_char.has_value()) {
         if (next_char.value() == next) {
             tok = Token(next_op, std::string(1, current) + next);
-            npos.range.second = npos.range.first + 1;
+            npos.end = npos.begin + 1;
             tok.setLocation(npos);
             _position += 2;//Set iterator to next space
             return tok;
@@ -600,7 +604,7 @@ Token Lexer::get_next_token() {
 
                 move_itr_bounds();
                 _position = closing_match;
-                npos.range.second = npos.range.first + std::string(old_pos, closing_match).size();
+                npos.end = npos.begin + std::string(old_pos, closing_match).size();
                 //Despite the coordinates tracking the whole string including quotes
                 //The value we care about is the Inner chars only
                 Token tok = Token(STRING, std::string{old_pos + 1, *_position});
@@ -651,7 +655,7 @@ Token Lexer::get_next_token() {
 
                 // word found could be a Pourer keyword
                 _position = buffer;
-                npos.range.second = npos.range.first + identifier.size();
+                npos.end = npos.begin + identifier.size();
 
                 Token tok = Token(IDENTIFIER, identifier);
                 tok.setLocation(npos);
@@ -677,7 +681,7 @@ Token Lexer::get_next_token() {
                     Token tok = Token(DOUBLE, std::string{*_position, buffer});
 
                     _position = buffer;
-                    npos.range.second = npos.range.first + tok.getValue().size() - 1;
+                    npos.end = npos.begin + tok.getValue().size() - 1;
                     tok.setLocation(npos);
                     return tok;
                 }
@@ -686,7 +690,7 @@ Token Lexer::get_next_token() {
                 Token tok = Token(NUMBER, number);
 
                 _position = buffer;
-                npos.range.second = npos.range.first + number.size() - 1;
+                npos.end = npos.begin + number.size() - 1;
                 tok.setLocation(npos);
                 return tok;
 
@@ -707,7 +711,7 @@ Token Lexer::get_next_token() {
                     //FIXME: Returning tok  directly does not return the item as is!
                     Token tk = tok;
                     _position = buffer;
-                    npos.range.second = npos.range.first + word.size() - 1;
+                    npos.end = npos.begin + word.size() - 1;
                     tk.setLocation(npos);
 
                     return tk;
@@ -717,12 +721,12 @@ Token Lexer::get_next_token() {
                     _position = buffer;
 
                     if (tok.getType() != INVALID) {
-                        npos.range.second = npos.range.first + word.size() - 1;
+                        npos.end = npos.begin + word.size() - 1;
                         tok.setLocation(npos);
                         return tok;
                     }
 
-                    npos.range.second = npos.range.first + word.size() - 1;
+                    npos.end = npos.begin + word.size() - 1;
                     tok.setLocation(npos);
                     return tok;
                 }

@@ -11,11 +11,11 @@ IteratorWrapper &IteratorWrapper::operator++() {
 
     if (*pos == '\n') {
         // std::cout << "New line" << std::endl;
-        location.range.first = 1;
+        location.begin = 1;
         location.line++;
     } else {
         // std::cout << "Not new line" << std::endl;
-        location.range.first++;
+        location.begin++;
     }
 
     pos++;

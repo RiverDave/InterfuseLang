@@ -20,7 +20,7 @@ public:
     std::stack<Token> assert_stk;
 
 
-    explicit Lexer(const std::fstream &, const bool=false);
+    explicit Lexer(const std::fstream &, const bool = false);
 
     [[nodiscard]]
     Token get_next_token();
@@ -40,9 +40,8 @@ public:
             const std::unordered_map<std::string, TOKEN_TYPE> &mp);
 };
 
-//To be integrated with the parser(BISON)
 
-static Lexer *lexerInstance = nullptr;
+extern Lexer *lexerInstance;
 
 
 #endif

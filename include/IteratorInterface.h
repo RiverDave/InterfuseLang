@@ -21,7 +21,7 @@ public:
     IteratorWrapper &operator=(const std::string::iterator &);
     std::string::iterator &operator*();
     [[nodiscard]] TokenLocation &getLocation() { return location; }
-    [[nodiscard]] std::pair<size_t, std::optional<size_t>> &getColumnCoordinates() { return location.range; };
+    //[[nodiscard]] std::pair<size_t, std::optional<size_t>> &getColumnCoordinates() { return location.range; };
     [[nodiscard]] std::string::iterator &getIterator() { return pos; }// alternative to dereferencing(cleaner)
 };
 

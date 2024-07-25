@@ -4,15 +4,15 @@
 #include "parser.hpp"
 #include <CLI11.hpp>//CLI parser
 #include <FuseHandler.h>
-#include <httplib.h>
 #include <iomanip>
 
-#define CPPHTTPLIB_OPENSSL_SUPPORT
 
 // extern int yyparse();
 //extern void initializeLexer();
 extern std::unique_ptr<NBlock> programBlock;
+extern bool _verbose_mode;
 extern FuseHandler fusehandler;
+extern Lexer *lexerInstance;
 
 //Path to .fuse file
 std::string _global_file_path;
@@ -22,7 +22,7 @@ using namespace yy;
 
 
 //TODO: flag that outputs not just the result of the program but also the IR generated llvm code.
-static bool _verbose_mode = false;
+
 static bool binary_compilation = false;
 
 
@@ -95,8 +95,8 @@ int main(int argc, char **argv) {
                 std::cout << std::string(80, '=') << std::endl;
                 context.runCode();
                 std::cout << std::string(80, '=') << std::endl;
-            }else{
-              context.runCode();
+            } else {
+                context.runCode();
             }
         }
 

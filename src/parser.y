@@ -1,16 +1,18 @@
+/* This file defines the construction of fuse's AST, as the parser recognizes sequence of tokens, it creates the nodes specified in AST. */
+
 %language "C++"
 %require "3.2"
 %define parser_class_name {fuse_parser}
 %define api.value.type variant
-%define parse.error verbose
-//%define parse.assert true
+%define parse.error detailed
+//%define parse.assert true //FIXME: These assertions fail miserably
 %define parse.trace true
 
 %code requires {
 
     #include "Lexer.h"
     #include "AST.h"
-    #include "FuseHandler.h"
+    //#include "FuseHandler.h"
     #include <iostream>
     #include <vector>
     #include <memory>
@@ -19,15 +21,16 @@
     using namespace std;
 }
 
+%locations
+%define api.location.type {TokenLocation}
+
 %code{
 
+//To be integrated with the parser(BISON)
+    Lexer *lexerInstance;
     std::shared_ptr<NBlock> programBlock;
-    FuseHandler fusehandler;
-    int yylex(yy::fuse_parser::semantic_type* yylval);
+    int yylex(yy::fuse_parser::semantic_type* yylval, TokenLocation* yylloc);
 
-    void getErrorCnt(){
-      std::cout << "Aborting... Known Errors: " << fusehandler.err_cnt << std::endl;
-    }
 
 
 }
@@ -120,11 +123,10 @@ stmts:
           $1->statements.push_back($2);
 
         } else {
-          std::vector<std::unique_ptr<Token>> local_error;
-          error("Invalid statement");
+          error(@2, "Invalid statement");
           //error("Missing ; Delimiter", (local_error));// FIXME: Wrong error
           $$ = nullptr;
-          getErrorCnt();
+          //getErrorCnt();
           YYABORT;
         }
 
@@ -211,9 +213,9 @@ var_decl:
 
         if(!$5){
           std::vector<std::unique_ptr<Token>> local_error;
-          error("Invalid assignment expression to variable declaration"/*, (local_error)*/);
+          error(@5, "Invalid assignment expression to variable declaration"/*, (local_error)*/);
           $$ = nullptr;
-          getErrorCnt();
+          //getErrorCnt();
           YYABORT;
 
         }else{
@@ -308,7 +310,7 @@ block :
 
 for_stmt:
 
-//TODO: id wont be a var decl in this case but rather a local defined within the loop, in the ast 
+//TODO: id wont be a var decl in this case but rather a local defined within the loop block, in the ast 
 //we should check if the id is defined within the current scope
 //inclusive range: for @i in @i < 10 := @i++ {...
 
@@ -321,9 +323,9 @@ for_stmt:
     TKFOR  error
     {
         std::vector<std::unique_ptr<Token>> local_error;
-        error("Incorrect 'for' statement in for loop"/*, (local_error)*/);
+        error(@2, "Incorrect 'for' statement in for loop"/*, (local_error)*/);
         $$ = nullptr;
-        getErrorCnt();
+        //getErrorCnt();
         YYABORT;
     }
     ;
@@ -335,9 +337,9 @@ if_stmt:
 
         if(!$2){
           std::vector<std::unique_ptr<Token>> local_error;
-          error("Invalid expression in if statement"/*, (local_error)*/);
+          error(@2,"Invalid expression in if statement"/*, (local_error)*/);
           $$ = nullptr;
-          getErrorCnt();
+          //getErrorCnt();
           YYABORT;
 
         }
@@ -394,7 +396,7 @@ fn_call_args:
     fn_call_args TKCOMMA expr
     {
         if(!$3){
-          error("Invalid expression in function call"/*, (local_error)*/);
+          error(@3, "Invalid expression in function call"/*, (local_error)*/);
           YYABORT;
         }
 
@@ -405,9 +407,9 @@ fn_call_args:
     TKINVALID
     {
       std::vector<std::unique_ptr<Token>> local_error;
-      error("Invalid Token in function call"/*, (local_error)*/);
+      error(@1, "Invalid Token in function call"/*, (local_error)*/);
       $$ = nullptr;
-      getErrorCnt();
+      //getErrorCnt();
       YYABORT;
     }
     ;
@@ -416,12 +418,12 @@ expr:
 
     TKINVALID
     {
-      error("Invalid Token"/*, (local_error)*/);
+      error(@1,"Invalid Token"/*, (local_error)*/);
     } |
 
     error 
     {
-      error("Invalid expression"/*, (local_error)*/);
+      error(@1,"Invalid expression"/*, (local_error)*/);
       YYABORT;
 
     } |
@@ -429,7 +431,7 @@ expr:
     id TKASSIGNMENT expr
     {
     if(!$3){
-      error("Invalid assignment expression"/*, (local_error)*/);
+      error(@2,"Invalid assignment expression"/*, (local_error)*/);
       YYABORT;
 
     }
@@ -466,7 +468,7 @@ expr:
     {
       if(!$1 || !$3)
       {
-        error("Invalid operand expression"/*, (local_error)*/);
+        error(@2,"Invalid operand expression"/*, (local_error)*/);
         YYABORT;
 
       } else {
@@ -486,7 +488,7 @@ expr:
 
       if(!$1 || !$3)
       {
-        error("Invalid operand comparison expression"/*, (local_error)*/);
+        error(@2, "Invalid operand comparison expression"/*, (local_error)*/);
         YYABORT;
 
       } else {
@@ -499,7 +501,7 @@ expr:
     {
       if(!$2)
       {
-        error("Invalid negation expression"/*, (local_error)*/);
+        error(@1,"Invalid negation expression"/*, (local_error)*/);
         YYABORT;
 
       } else {
@@ -562,9 +564,13 @@ comparison:
 
 %%
 
-void yy::fuse_parser::error(const string& m) {
-  std::cerr << "INTERFUSE ERROR: " <<  m << std::endl;
+void yy::fuse_parser::error(const TokenLocation& loc, const string& m) {
+
+  if(lexerInstance->_position.getLocation().line != loc.line && loc.line == 1){
+    std::cerr << "INTERFUSE ERROR " << m << std::endl;
+  }else{
+    std::cerr << "INTERFUSE ERROR at " << loc << ": " << m << std::endl;
+  }
+
+
 }
-
-
-

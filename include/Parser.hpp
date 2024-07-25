@@ -32,7 +32,7 @@
 
 
 /**
- ** \file /Users/davidfeliperiveraguerra/dev/InterfuseLang/include/parser.hpp
+ ** \file /Users/davidfeliperiveraguerra/dev/Interfuse-Project/compiler/include/parser.hpp
  ** Define the yy::parser class.
  */
 
@@ -42,15 +42,15 @@
 // especially those whose name start with YY_ or yy_.  They are
 // private implementation details that can be changed or removed.
 
-#ifndef YY_YY_USERS_DAVIDFELIPERIVERAGUERRA_DEV_INTERFUSELANG_INCLUDE_PARSER_HPP_INCLUDED
-# define YY_YY_USERS_DAVIDFELIPERIVERAGUERRA_DEV_INTERFUSELANG_INCLUDE_PARSER_HPP_INCLUDED
+#ifndef YY_YY_USERS_DAVIDFELIPERIVERAGUERRA_DEV_INTERFUSE_PROJECT_COMPILER_INCLUDE_PARSER_HPP_INCLUDED
+# define YY_YY_USERS_DAVIDFELIPERIVERAGUERRA_DEV_INTERFUSE_PROJECT_COMPILER_INCLUDE_PARSER_HPP_INCLUDED
 // "%code requires" blocks.
-#line 9 "/Users/davidfeliperiveraguerra/dev/InterfuseLang/src/parser.y"
+#line 11 "/Users/davidfeliperiveraguerra/dev/Interfuse-Project/compiler/src/parser.y"
 
 
     #include "Lexer.h"
     #include "AST.h"
-    #include "FuseHandler.h"
+    //#include "FuseHandler.h"
     #include <iostream>
     #include <vector>
     #include <memory>
@@ -58,7 +58,7 @@
 
     using namespace std;
 
-#line 62 "/Users/davidfeliperiveraguerra/dev/InterfuseLang/include/parser.hpp"
+#line 62 "/Users/davidfeliperiveraguerra/dev/Interfuse-Project/compiler/include/parser.hpp"
 
 
 # include <cstdlib> // std::abort
@@ -193,7 +193,7 @@
 #endif
 
 namespace yy {
-#line 197 "/Users/davidfeliperiveraguerra/dev/InterfuseLang/include/parser.hpp"
+#line 197 "/Users/davidfeliperiveraguerra/dev/Interfuse-Project/compiler/include/parser.hpp"
 
 
 
@@ -485,19 +485,25 @@ namespace yy {
     /// Backward compatibility (Bison 3.8).
     typedef value_type semantic_type;
 
+    /// Symbol locations.
+    typedef TokenLocation location_type;
 
     /// Syntax errors thrown from user actions.
     struct syntax_error : std::runtime_error
     {
-      syntax_error (const std::string& m)
+      syntax_error (const location_type& l, const std::string& m)
         : std::runtime_error (m)
+        , location (l)
       {}
 
       syntax_error (const syntax_error& s)
         : std::runtime_error (s.what ())
+        , location (s.location)
       {}
 
       ~syntax_error () YY_NOEXCEPT YY_NOTHROW;
+
+      location_type location;
     };
 
     /// Token kinds.
@@ -645,7 +651,7 @@ namespace yy {
     /// Expects its Base type to provide access to the symbol kind
     /// via kind ().
     ///
-    /// Provide access to semantic value.
+    /// Provide access to semantic value and location.
     template <typename Base>
     struct basic_symbol : Base
     {
@@ -655,6 +661,7 @@ namespace yy {
       /// Default constructor.
       basic_symbol () YY_NOEXCEPT
         : value ()
+        , location ()
       {}
 
 #if 201103L <= YY_CPLUSPLUS
@@ -662,6 +669,7 @@ namespace yy {
       basic_symbol (basic_symbol&& that)
         : Base (std::move (that))
         , value ()
+        , location (std::move (that.location))
       {
         switch (this->kind ())
     {
@@ -764,120 +772,140 @@ namespace yy {
 
       /// Constructors for typed symbols.
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t)
+      basic_symbol (typename Base::kind_type t, location_type&& l)
         : Base (t)
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t)
+      basic_symbol (typename Base::kind_type t, const location_type& l)
         : Base (t)
+        , location (l)
       {}
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t, shared_ptr<vector<shared_ptr<NExpression>>>&& v)
+      basic_symbol (typename Base::kind_type t, shared_ptr<vector<shared_ptr<NExpression>>>&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t, const shared_ptr<vector<shared_ptr<NExpression>>>& v)
+      basic_symbol (typename Base::kind_type t, const shared_ptr<vector<shared_ptr<NExpression>>>& v, const location_type& l)
         : Base (t)
         , value (v)
+        , location (l)
       {}
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t, std::shared_ptr<NBlock>&& v)
+      basic_symbol (typename Base::kind_type t, std::shared_ptr<NBlock>&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NBlock>& v)
+      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NBlock>& v, const location_type& l)
         : Base (t)
         , value (v)
+        , location (l)
       {}
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t, std::shared_ptr<NElseStatement>&& v)
+      basic_symbol (typename Base::kind_type t, std::shared_ptr<NElseStatement>&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NElseStatement>& v)
+      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NElseStatement>& v, const location_type& l)
         : Base (t)
         , value (v)
+        , location (l)
       {}
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t, std::shared_ptr<NExpression>&& v)
+      basic_symbol (typename Base::kind_type t, std::shared_ptr<NExpression>&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NExpression>& v)
+      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NExpression>& v, const location_type& l)
         : Base (t)
         , value (v)
+        , location (l)
       {}
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t, std::shared_ptr<NIdentifier>&& v)
+      basic_symbol (typename Base::kind_type t, std::shared_ptr<NIdentifier>&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NIdentifier>& v)
+      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NIdentifier>& v, const location_type& l)
         : Base (t)
         , value (v)
+        , location (l)
       {}
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t, std::shared_ptr<NStatement>&& v)
+      basic_symbol (typename Base::kind_type t, std::shared_ptr<NStatement>&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NStatement>& v)
+      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NStatement>& v, const location_type& l)
         : Base (t)
         , value (v)
+        , location (l)
       {}
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t, std::shared_ptr<NVariableDeclaration>&& v)
+      basic_symbol (typename Base::kind_type t, std::shared_ptr<NVariableDeclaration>&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NVariableDeclaration>& v)
+      basic_symbol (typename Base::kind_type t, const std::shared_ptr<NVariableDeclaration>& v, const location_type& l)
         : Base (t)
         , value (v)
+        , location (l)
       {}
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t, std::shared_ptr<Token>&& v)
+      basic_symbol (typename Base::kind_type t, std::shared_ptr<Token>&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t, const std::shared_ptr<Token>& v)
+      basic_symbol (typename Base::kind_type t, const std::shared_ptr<Token>& v, const location_type& l)
         : Base (t)
         , value (v)
+        , location (l)
       {}
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
-      basic_symbol (typename Base::kind_type t, std::shared_ptr<VariableList>&& v)
+      basic_symbol (typename Base::kind_type t, std::shared_ptr<VariableList>&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
+        , location (std::move (l))
       {}
 #else
-      basic_symbol (typename Base::kind_type t, const std::shared_ptr<VariableList>& v)
+      basic_symbol (typename Base::kind_type t, const std::shared_ptr<VariableList>& v, const location_type& l)
         : Base (t)
         , value (v)
+        , location (l)
       {}
 #endif
 
@@ -1000,7 +1028,7 @@ switch (yykind)
       }
 
       /// The user-facing name of this symbol.
-      std::string name () const YY_NOEXCEPT
+      const char *name () const YY_NOEXCEPT
       {
         return fuse_parser::symbol_name (this->kind ());
       }
@@ -1016,6 +1044,9 @@ switch (yykind)
 
       /// The semantic value.
       value_type value;
+
+      /// The location.
+      location_type location;
 
     private:
 #if YY_CPLUSPLUS < 201103L
@@ -1078,19 +1109,19 @@ switch (yykind)
 
       /// Constructor for valueless symbols, and symbols from each type.
 #if 201103L <= YY_CPLUSPLUS
-      symbol_type (int tok)
-        : super_type (token_kind_type (tok))
+      symbol_type (int tok, location_type l)
+        : super_type (token_kind_type (tok), std::move (l))
 #else
-      symbol_type (int tok)
-        : super_type (token_kind_type (tok))
+      symbol_type (int tok, const location_type& l)
+        : super_type (token_kind_type (tok), l)
 #endif
       {}
 #if 201103L <= YY_CPLUSPLUS
-      symbol_type (int tok, std::shared_ptr<Token> v)
-        : super_type (token_kind_type (tok), std::move (v))
+      symbol_type (int tok, std::shared_ptr<Token> v, location_type l)
+        : super_type (token_kind_type (tok), std::move (v), std::move (l))
 #else
-      symbol_type (int tok, const std::shared_ptr<Token>& v)
-        : super_type (token_kind_type (tok), v)
+      symbol_type (int tok, const std::shared_ptr<Token>& v, const location_type& l)
+        : super_type (token_kind_type (tok), v, l)
 #endif
       {}
     };
@@ -1129,660 +1160,661 @@ switch (yykind)
 #endif
 
     /// Report a syntax error.
+    /// \param loc    where the syntax error is found.
     /// \param msg    a description of the syntax error.
-    virtual void error (const std::string& msg);
+    virtual void error (const location_type& loc, const std::string& msg);
 
     /// Report a syntax error.
     void error (const syntax_error& err);
 
     /// The user-facing name of the symbol whose (internal) number is
     /// YYSYMBOL.  No bounds checking.
-    static std::string symbol_name (symbol_kind_type yysymbol);
+    static const char *symbol_name (symbol_kind_type yysymbol);
 
     // Implementation of make_symbol for each token kind.
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_YYEOF ()
+      make_YYEOF (location_type l)
       {
-        return symbol_type (token::YYEOF);
+        return symbol_type (token::YYEOF, std::move (l));
       }
 #else
       static
       symbol_type
-      make_YYEOF ()
+      make_YYEOF (const location_type& l)
       {
-        return symbol_type (token::YYEOF);
+        return symbol_type (token::YYEOF, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_YYerror ()
+      make_YYerror (location_type l)
       {
-        return symbol_type (token::YYerror);
+        return symbol_type (token::YYerror, std::move (l));
       }
 #else
       static
       symbol_type
-      make_YYerror ()
+      make_YYerror (const location_type& l)
       {
-        return symbol_type (token::YYerror);
+        return symbol_type (token::YYerror, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_YYUNDEF ()
+      make_YYUNDEF (location_type l)
       {
-        return symbol_type (token::YYUNDEF);
+        return symbol_type (token::YYUNDEF, std::move (l));
       }
 #else
       static
       symbol_type
-      make_YYUNDEF ()
+      make_YYUNDEF (const location_type& l)
       {
-        return symbol_type (token::YYUNDEF);
+        return symbol_type (token::YYUNDEF, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKNUMBER (std::shared_ptr<Token> v)
+      make_TKNUMBER (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKNUMBER, std::move (v));
+        return symbol_type (token::TKNUMBER, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKNUMBER (const std::shared_ptr<Token>& v)
+      make_TKNUMBER (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKNUMBER, v);
+        return symbol_type (token::TKNUMBER, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKDOUBLE (std::shared_ptr<Token> v)
+      make_TKDOUBLE (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKDOUBLE, std::move (v));
+        return symbol_type (token::TKDOUBLE, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKDOUBLE (const std::shared_ptr<Token>& v)
+      make_TKDOUBLE (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKDOUBLE, v);
+        return symbol_type (token::TKDOUBLE, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKSTRING (std::shared_ptr<Token> v)
+      make_TKSTRING (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKSTRING, std::move (v));
+        return symbol_type (token::TKSTRING, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKSTRING (const std::shared_ptr<Token>& v)
+      make_TKSTRING (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKSTRING, v);
+        return symbol_type (token::TKSTRING, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKPLUS (std::shared_ptr<Token> v)
+      make_TKPLUS (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKPLUS, std::move (v));
+        return symbol_type (token::TKPLUS, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKPLUS (const std::shared_ptr<Token>& v)
+      make_TKPLUS (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKPLUS, v);
+        return symbol_type (token::TKPLUS, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKMINUS (std::shared_ptr<Token> v)
+      make_TKMINUS (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKMINUS, std::move (v));
+        return symbol_type (token::TKMINUS, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKMINUS (const std::shared_ptr<Token>& v)
+      make_TKMINUS (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKMINUS, v);
+        return symbol_type (token::TKMINUS, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKMULT (std::shared_ptr<Token> v)
+      make_TKMULT (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKMULT, std::move (v));
+        return symbol_type (token::TKMULT, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKMULT (const std::shared_ptr<Token>& v)
+      make_TKMULT (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKMULT, v);
+        return symbol_type (token::TKMULT, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKDIV (std::shared_ptr<Token> v)
+      make_TKDIV (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKDIV, std::move (v));
+        return symbol_type (token::TKDIV, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKDIV (const std::shared_ptr<Token>& v)
+      make_TKDIV (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKDIV, v);
+        return symbol_type (token::TKDIV, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKMOD (std::shared_ptr<Token> v)
+      make_TKMOD (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKMOD, std::move (v));
+        return symbol_type (token::TKMOD, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKMOD (const std::shared_ptr<Token>& v)
+      make_TKMOD (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKMOD, v);
+        return symbol_type (token::TKMOD, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKRETURN (std::shared_ptr<Token> v)
+      make_TKRETURN (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKRETURN, std::move (v));
+        return symbol_type (token::TKRETURN, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKRETURN (const std::shared_ptr<Token>& v)
+      make_TKRETURN (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKRETURN, v);
+        return symbol_type (token::TKRETURN, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKCOMMA (std::shared_ptr<Token> v)
+      make_TKCOMMA (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKCOMMA, std::move (v));
+        return symbol_type (token::TKCOMMA, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKCOMMA (const std::shared_ptr<Token>& v)
+      make_TKCOMMA (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKCOMMA, v);
+        return symbol_type (token::TKCOMMA, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKDOT (std::shared_ptr<Token> v)
+      make_TKDOT (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKDOT, std::move (v));
+        return symbol_type (token::TKDOT, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKDOT (const std::shared_ptr<Token>& v)
+      make_TKDOT (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKDOT, v);
+        return symbol_type (token::TKDOT, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKARROW (std::shared_ptr<Token> v)
+      make_TKARROW (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKARROW, std::move (v));
+        return symbol_type (token::TKARROW, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKARROW (const std::shared_ptr<Token>& v)
+      make_TKARROW (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKARROW, v);
+        return symbol_type (token::TKARROW, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKCOLON (std::shared_ptr<Token> v)
+      make_TKCOLON (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKCOLON, std::move (v));
+        return symbol_type (token::TKCOLON, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKCOLON (const std::shared_ptr<Token>& v)
+      make_TKCOLON (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKCOLON, v);
+        return symbol_type (token::TKCOLON, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKRANGE_INCLUSIVE (std::shared_ptr<Token> v)
+      make_TKRANGE_INCLUSIVE (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKRANGE_INCLUSIVE, std::move (v));
+        return symbol_type (token::TKRANGE_INCLUSIVE, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKRANGE_INCLUSIVE (const std::shared_ptr<Token>& v)
+      make_TKRANGE_INCLUSIVE (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKRANGE_INCLUSIVE, v);
+        return symbol_type (token::TKRANGE_INCLUSIVE, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKLINEBREAK (std::shared_ptr<Token> v)
+      make_TKLINEBREAK (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKLINEBREAK, std::move (v));
+        return symbol_type (token::TKLINEBREAK, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKLINEBREAK (const std::shared_ptr<Token>& v)
+      make_TKLINEBREAK (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKLINEBREAK, v);
+        return symbol_type (token::TKLINEBREAK, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKASSIGNMENT (std::shared_ptr<Token> v)
+      make_TKASSIGNMENT (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKASSIGNMENT, std::move (v));
+        return symbol_type (token::TKASSIGNMENT, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKASSIGNMENT (const std::shared_ptr<Token>& v)
+      make_TKASSIGNMENT (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKASSIGNMENT, v);
+        return symbol_type (token::TKASSIGNMENT, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKLESS (std::shared_ptr<Token> v)
+      make_TKLESS (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKLESS, std::move (v));
+        return symbol_type (token::TKLESS, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKLESS (const std::shared_ptr<Token>& v)
+      make_TKLESS (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKLESS, v);
+        return symbol_type (token::TKLESS, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKGREATER (std::shared_ptr<Token> v)
+      make_TKGREATER (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKGREATER, std::move (v));
+        return symbol_type (token::TKGREATER, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKGREATER (const std::shared_ptr<Token>& v)
+      make_TKGREATER (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKGREATER, v);
+        return symbol_type (token::TKGREATER, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKLESS_EQUAL (std::shared_ptr<Token> v)
+      make_TKLESS_EQUAL (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKLESS_EQUAL, std::move (v));
+        return symbol_type (token::TKLESS_EQUAL, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKLESS_EQUAL (const std::shared_ptr<Token>& v)
+      make_TKLESS_EQUAL (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKLESS_EQUAL, v);
+        return symbol_type (token::TKLESS_EQUAL, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKGREATER_EQUAL (std::shared_ptr<Token> v)
+      make_TKGREATER_EQUAL (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKGREATER_EQUAL, std::move (v));
+        return symbol_type (token::TKGREATER_EQUAL, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKGREATER_EQUAL (const std::shared_ptr<Token>& v)
+      make_TKGREATER_EQUAL (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKGREATER_EQUAL, v);
+        return symbol_type (token::TKGREATER_EQUAL, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKEQUAL (std::shared_ptr<Token> v)
+      make_TKEQUAL (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKEQUAL, std::move (v));
+        return symbol_type (token::TKEQUAL, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKEQUAL (const std::shared_ptr<Token>& v)
+      make_TKEQUAL (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKEQUAL, v);
+        return symbol_type (token::TKEQUAL, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKNOT_EQUAL (std::shared_ptr<Token> v)
+      make_TKNOT_EQUAL (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKNOT_EQUAL, std::move (v));
+        return symbol_type (token::TKNOT_EQUAL, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKNOT_EQUAL (const std::shared_ptr<Token>& v)
+      make_TKNOT_EQUAL (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKNOT_EQUAL, v);
+        return symbol_type (token::TKNOT_EQUAL, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKAND (std::shared_ptr<Token> v)
+      make_TKAND (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKAND, std::move (v));
+        return symbol_type (token::TKAND, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKAND (const std::shared_ptr<Token>& v)
+      make_TKAND (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKAND, v);
+        return symbol_type (token::TKAND, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKOR (std::shared_ptr<Token> v)
+      make_TKOR (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKOR, std::move (v));
+        return symbol_type (token::TKOR, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKOR (const std::shared_ptr<Token>& v)
+      make_TKOR (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKOR, v);
+        return symbol_type (token::TKOR, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKNEGATION (std::shared_ptr<Token> v)
+      make_TKNEGATION (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKNEGATION, std::move (v));
+        return symbol_type (token::TKNEGATION, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKNEGATION (const std::shared_ptr<Token>& v)
+      make_TKNEGATION (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKNEGATION, v);
+        return symbol_type (token::TKNEGATION, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKIDENTIFIER (std::shared_ptr<Token> v)
+      make_TKIDENTIFIER (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKIDENTIFIER, std::move (v));
+        return symbol_type (token::TKIDENTIFIER, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKIDENTIFIER (const std::shared_ptr<Token>& v)
+      make_TKIDENTIFIER (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKIDENTIFIER, v);
+        return symbol_type (token::TKIDENTIFIER, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKDATATYPE (std::shared_ptr<Token> v)
+      make_TKDATATYPE (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKDATATYPE, std::move (v));
+        return symbol_type (token::TKDATATYPE, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKDATATYPE (const std::shared_ptr<Token>& v)
+      make_TKDATATYPE (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKDATATYPE, v);
+        return symbol_type (token::TKDATATYPE, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKCURLYOPEN (std::shared_ptr<Token> v)
+      make_TKCURLYOPEN (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKCURLYOPEN, std::move (v));
+        return symbol_type (token::TKCURLYOPEN, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKCURLYOPEN (const std::shared_ptr<Token>& v)
+      make_TKCURLYOPEN (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKCURLYOPEN, v);
+        return symbol_type (token::TKCURLYOPEN, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKCURLYCLOSE (std::shared_ptr<Token> v)
+      make_TKCURLYCLOSE (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKCURLYCLOSE, std::move (v));
+        return symbol_type (token::TKCURLYCLOSE, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKCURLYCLOSE (const std::shared_ptr<Token>& v)
+      make_TKCURLYCLOSE (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKCURLYCLOSE, v);
+        return symbol_type (token::TKCURLYCLOSE, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKPAROPEN (std::shared_ptr<Token> v)
+      make_TKPAROPEN (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKPAROPEN, std::move (v));
+        return symbol_type (token::TKPAROPEN, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKPAROPEN (const std::shared_ptr<Token>& v)
+      make_TKPAROPEN (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKPAROPEN, v);
+        return symbol_type (token::TKPAROPEN, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKPARCLOSE (std::shared_ptr<Token> v)
+      make_TKPARCLOSE (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKPARCLOSE, std::move (v));
+        return symbol_type (token::TKPARCLOSE, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKPARCLOSE (const std::shared_ptr<Token>& v)
+      make_TKPARCLOSE (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKPARCLOSE, v);
+        return symbol_type (token::TKPARCLOSE, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKFUNCTION_KEY (std::shared_ptr<Token> v)
+      make_TKFUNCTION_KEY (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKFUNCTION_KEY, std::move (v));
+        return symbol_type (token::TKFUNCTION_KEY, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKFUNCTION_KEY (const std::shared_ptr<Token>& v)
+      make_TKFUNCTION_KEY (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKFUNCTION_KEY, v);
+        return symbol_type (token::TKFUNCTION_KEY, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKIF (std::shared_ptr<Token> v)
+      make_TKIF (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKIF, std::move (v));
+        return symbol_type (token::TKIF, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKIF (const std::shared_ptr<Token>& v)
+      make_TKIF (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKIF, v);
+        return symbol_type (token::TKIF, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKELSE (std::shared_ptr<Token> v)
+      make_TKELSE (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKELSE, std::move (v));
+        return symbol_type (token::TKELSE, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKELSE (const std::shared_ptr<Token>& v)
+      make_TKELSE (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKELSE, v);
+        return symbol_type (token::TKELSE, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKELSEIF (std::shared_ptr<Token> v)
+      make_TKELSEIF (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKELSEIF, std::move (v));
+        return symbol_type (token::TKELSEIF, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKELSEIF (const std::shared_ptr<Token>& v)
+      make_TKELSEIF (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKELSEIF, v);
+        return symbol_type (token::TKELSEIF, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKFOR (std::shared_ptr<Token> v)
+      make_TKFOR (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKFOR, std::move (v));
+        return symbol_type (token::TKFOR, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKFOR (const std::shared_ptr<Token>& v)
+      make_TKFOR (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKFOR, v);
+        return symbol_type (token::TKFOR, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKIN (std::shared_ptr<Token> v)
+      make_TKIN (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKIN, std::move (v));
+        return symbol_type (token::TKIN, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKIN (const std::shared_ptr<Token>& v)
+      make_TKIN (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKIN, v);
+        return symbol_type (token::TKIN, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKBREAK (std::shared_ptr<Token> v)
+      make_TKBREAK (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKBREAK, std::move (v));
+        return symbol_type (token::TKBREAK, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKBREAK (const std::shared_ptr<Token>& v)
+      make_TKBREAK (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKBREAK, v);
+        return symbol_type (token::TKBREAK, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKCONT (std::shared_ptr<Token> v)
+      make_TKCONT (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKCONT, std::move (v));
+        return symbol_type (token::TKCONT, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKCONT (const std::shared_ptr<Token>& v)
+      make_TKCONT (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKCONT, v);
+        return symbol_type (token::TKCONT, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_TKINVALID (std::shared_ptr<Token> v)
+      make_TKINVALID (std::shared_ptr<Token> v, location_type l)
       {
-        return symbol_type (token::TKINVALID, std::move (v));
+        return symbol_type (token::TKINVALID, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_TKINVALID (const std::shared_ptr<Token>& v)
+      make_TKINVALID (const std::shared_ptr<Token>& v, const location_type& l)
       {
-        return symbol_type (token::TKINVALID, v);
+        return symbol_type (token::TKINVALID, v, l);
       }
 #endif
 
@@ -1793,6 +1825,8 @@ switch (yykind)
       context (const fuse_parser& yyparser, const symbol_type& yyla);
       const symbol_type& lookahead () const YY_NOEXCEPT { return yyla_; }
       symbol_kind_type token () const YY_NOEXCEPT { return yyla_.kind (); }
+      const location_type& location () const YY_NOEXCEPT { return yyla_.location; }
+
       /// Put in YYARG at most YYARGN of the expected tokens, and return the
       /// number of tokens stored in YYARG.  If YYARG is null, return the
       /// number of expected tokens (guaranteed to be less than YYNTOKENS).
@@ -1843,11 +1877,6 @@ switch (yykind)
     /// are valid, yet not members of the token_kind_type enum.
     static symbol_kind_type yytranslate_ (int t) YY_NOEXCEPT;
 
-    /// Convert the symbol name \a n to a form suitable for a diagnostic.
-    static std::string yytnamerr_ (const char *yystr);
-
-    /// For a symbol, its name in clear.
-    static const char* const yytname_[];
 
 
     // Tables.
@@ -2124,9 +2153,9 @@ switch (yykind)
 
 
 } // yy
-#line 2128 "/Users/davidfeliperiveraguerra/dev/InterfuseLang/include/parser.hpp"
+#line 2157 "/Users/davidfeliperiveraguerra/dev/Interfuse-Project/compiler/include/parser.hpp"
 
 
 
 
-#endif // !YY_YY_USERS_DAVIDFELIPERIVERAGUERRA_DEV_INTERFUSELANG_INCLUDE_PARSER_HPP_INCLUDED
+#endif // !YY_YY_USERS_DAVIDFELIPERIVERAGUERRA_DEV_INTERFUSE_PROJECT_COMPILER_INCLUDE_PARSER_HPP_INCLUDED

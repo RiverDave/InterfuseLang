@@ -99,17 +99,20 @@ enum TOKEN_TYPE {
 struct TokenLocation {
 
     int line = 1;
-    //first -> first char of token, second -> denotes the last token
-    std::pair<size_t, std::optional<size_t>> range = {1, std::nullopt};
+    //first -> first char of token, second -> denotes the last char of token
+    // std::pair<size_t, std::optional<size_t>> range = {1, std::nullopt};
+    size_t begin = 1;
+    size_t end = 1;
+    
 
-    //sets coordinates of the last token, makes it overall easier to undestand
-    void setLocationDelimit(size_t val) { range.second = val; }
+    //sets coordinates of the last char, method to avoid verbosity
+    void setLocationDelimit(size_t val) { end = val; }
 
     std::ostream &display(std::ostream &os) const {
-        os << "" << line << ":" << range.first;
+        os << "" << line << ":" << begin;
 
-        if (range.second.has_value() && range.second != 0 && range.second != range.first) {
-            os << "-" << range.second.value();
+        if (end != 1  && end != begin) {
+            os << "-" << end;
         }
 
         return os;
@@ -119,7 +122,7 @@ struct TokenLocation {
         if (line > other.line)
             return true;
 
-        if (line == other.line && range.first > other.range.first)
+        if (line == other.line && begin > other.begin)
             return true;
 
 
@@ -151,8 +154,8 @@ public:
             value = other.value;
             location = other.location;
 
-            location.range.first = other.location.range.first;
-            location.range.second = other.location.range.second;
+            location.begin = other.location.begin;
+            location.end = other.location.end;
         }
         return *this;
     }

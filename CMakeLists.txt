@@ -6,17 +6,11 @@ find_package(LLVM REQUIRED CONFIG)
 
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-set(PACKAGE_BUGREPORT
-    "https://github.com/GoogleCloudPlatform/cpp-samples/issues")
-
-
 
 include_directories(${LLVM_INCLUDE_DIRS})
-# target_include_directories(interfuse PRIVATE ${functions_framework_cpp_INCLUDE_DIRS})
 
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
-set (CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -35,8 +29,6 @@ set(SOURCES
             src/IteratorInterface.cpp
             src/parser.y
             src/FuseHandler.cpp
-            include/httplib.h
-
 )
 
 message(STATUS "SOURCES: ${SOURCES}")
@@ -112,10 +104,21 @@ target_include_directories(interfuse PRIVATE ${INCLUDE_PATH})
 
 
 # Add compiler flags
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(LLVM_ENABLE_ASSERTIONS ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O0")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g -O0")
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # Enable optimization
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -O3")
+  set(LLVM_ENABLE_ASSERTIONS OFF) # Disable assertions
+  unset(CMAKE_EXPORT_COMPILE_COMMANDS) # Disable compile commands
+
+elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+
+  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+  set(LLVM_ENABLE_ASSERTIONS ON)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -g")
+
+endif()
 
 # install(TARGETS cloud_run_hello RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(interfuse PRIVATE ${llvm_libs})

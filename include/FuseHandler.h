@@ -1,3 +1,4 @@
+//This is not being used as of now, It was replaced by bison's built-in error handler
 #ifndef FUSEHANDLER_H
 #define FUSEHANDLER_H
 
