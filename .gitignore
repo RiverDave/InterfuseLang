@@ -17,7 +17,7 @@ include/*.hh
 
 .cache
 .cache/*
-examples/*.ll
+test/*.ll
 
 include/Parser.hpp
 cmake-build-debug/

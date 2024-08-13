@@ -122,7 +122,7 @@ endif()
 
 # install(TARGETS cloud_run_hello RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(interfuse PRIVATE ${llvm_libs})
-target_compile_options(interfuse PRIVATE -Wall -Wextra)
+target_compile_options(interfuse PRIVATE -Wall -Wextra -Wno-override-module)
 
 include(GNUInstallDirs)
 install(TARGETS interfuse RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

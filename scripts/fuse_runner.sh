@@ -7,15 +7,9 @@
 #2. generate object file(.0) out of the generated .ll file above
 #3. use clangd or gcc to generate binary/executable
 #or
-#4. use emscripten magic to generate wasm file & js wrapper
+#4. use emscripten magic to generate wasm file & js wrapper(This is not being implemented yet)
 
-echo "INITIALIZING INTERFUSE COMPILER 🚀"
 
-name=$1
-rawname=$(basename "$1" .ll) # Remove suffix
-
-objfile_name=$rawname.bc
-# llc -filetype=asm -o="$objfile_name" "$1"
 VERSION=""
 
 OS="$(uname)"
@@ -48,4 +42,4 @@ fi
 #File clean up
 rm "$1"
 
-echo "INTERFUSE: Compilation successful ✅"
+# echo "INTERFUSE: Compilation successful ✅"

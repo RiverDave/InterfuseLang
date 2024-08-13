@@ -25,9 +25,10 @@ using namespace llvm;
 
 extern const char *_global_file_path;
 
-CodeGenContext::CodeGenContext(bool verboseMode, bool binary, std::string fname, std::string exec_name)
+CodeGenContext::CodeGenContext(bool verboseMode, bool binary, std::string fname, std::string exec_name,
+                               bool dump_mode)
     : blocks(), _verbose_mode(verboseMode), dump_file_name(fname), binary_name(exec_name),
-      binary_compilation(binary) {
+      binary_compilation(binary), dump_mode(dump_mode) {
     // Init core llvm
     TheContext = std::make_unique<llvm::LLVMContext>();
     TheModule = std::make_unique<llvm::Module>("Pourer", *TheContext);
@@ -107,7 +108,7 @@ void CodeGenContext::emitIR(NBlock &srcRoot) {
 
         //Output code if requested
         if (_verbose_mode) {
-            std::cout << "Printing IR code...\n";
+            std::cerr << "Printing IR code...\n";
             TheModule->print(llvm::errs(), nullptr);
         }
 
@@ -170,23 +171,33 @@ llvm::GenericValue CodeGenContext::runCode() {
     return v;
 }
 
+//This wont be used for now since the warning generated was
+//causing issues with the compiler web interface
 void CodeGenContext::setTargets() {
     LLVMLinkInMCJIT();
     LLVMInitializeNativeTarget();
     LLVMInitializeNativeAsmPrinter();
     LLVMInitializeNativeAsmParser();
 
-
-
-        auto TargetTriple = LLVMGetDefaultTargetTriple();//Should run on every llvm capable system (theorically)
+    auto TargetTriple = LLVMGetDefaultTargetTriple();
+    if (TheModule->getTargetTriple().empty()) {
         TheModule->setTargetTriple(TargetTriple);
+    } else if (TheModule->getTargetTriple() != TargetTriple) {
+        std::cout << "Warning: overriding the module target triple with " << TargetTriple << std::endl;
+        TheModule->setTargetTriple(TargetTriple);
+    }
 }
 
+//TODO: Fix binary compilation issues
 int CodeGenContext::dumpIR() {
 
     std::error_code EC;
 
 
+    std::string new_binary_name;
+
+    //In case the user does not provide a binary name/ dump path
+    //we'll call this
     auto trim_extension = [&](std::string &filename) {
         assert(!filename.empty() && !binary_name.empty());
         auto pos = filename.find_last_of('.');
@@ -194,13 +205,19 @@ int CodeGenContext::dumpIR() {
             filename = filename.substr(0, pos);
         }
         filename += ".ll";//Append .ll extension
-
-        std::cout << filename << std::endl;
     };
 
-    trim_extension(dump_file_name);
+    //name the file after the binary name
+    if (binary_name.empty()) {
+        trim_extension(dump_file_name);
+    } else {
+        std::string new_str = std::string{binary_name + ".ll"};
+        new_binary_name = new_str;
+    }
 
-    llvm::raw_fd_ostream OS(dump_file_name, EC, llvm::sys::fs::OF_None);
+
+    //Link stream to file
+    llvm::raw_fd_ostream OS(new_binary_name, EC, llvm::sys::fs::OF_None);
 
     if (EC) {
         errs();
@@ -209,17 +226,24 @@ int CodeGenContext::dumpIR() {
 
     std::string wasm_ext;
 
-    //Dump ir to .ll file/ Creates file
+
+    //Dump ir to .ll file, Creates file
     TheModule->print(OS, nullptr);
 
-    //Run sh to compile to binary
-    std::string cmd = FUSE_RUNNER_PATH;
-    cmd += " " + dump_file_name + " " + binary_name + " " + wasm_ext;
+    //See fuse_runner.sh for more info
+    //It basically turns the .ll file into a binary
+    if (binary_compilation) {
 
-    int result = system(cmd.c_str());//Run sh script
-    if (result == -1) {
-        std::cerr << "INTERFUSE: sh command error" << std::endl;
-        return EXIT_FAILURE;
+        //Run sh to compile to binary
+        std::string cmd = FUSE_RUNNER_PATH;
+        cmd += " " + dump_file_name + " " + binary_name + " " + wasm_ext;
+
+        int result = system(cmd.c_str());//Run sh script
+        if (result == -1) {
+            std::cerr << "INTERFUSE: sh command error" << std::endl;
+            return EXIT_FAILURE;
+        }
+    } else {
     }
 
 
@@ -328,7 +352,7 @@ llvm::AllocaInst *CodeGenContext::insertMemOnFnBlock(llvm::Function *fn,
         // Insert at the beginning of the function
         Builder->SetInsertPoint(&fn->getEntryBlock());
     } else if (Builder->GetInsertBlock()->getParent() == nullptr) {
-        std::cout << "FN has no parent" << std::endl;
+        std::cerr << "FN has no parent" << std::endl;
         return nullptr;
     }
 
@@ -545,7 +569,7 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context) {
 
     } else if (!context.Builder->GetInsertBlock()->getParent()) {
         // NOTE: Unsure about this logic path might not be necessary...
-        std::cout << "FN has no parent" << std::endl;
+        std::cerr << "FN has no parent" << std::endl;
         return nullptr;
     }
 

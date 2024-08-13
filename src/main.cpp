@@ -24,6 +24,8 @@ using namespace yy;
 //TODO: flag that outputs not just the result of the program but also the IR generated llvm code.
 
 static bool binary_compilation = false;
+//Creates a .ll file
+static bool dump_mode = false;
 
 
 int main(int argc, char **argv) {
@@ -52,28 +54,34 @@ int main(int argc, char **argv) {
             });
 
 
+    //Includes output of the lexer process plus Lexer buildup
     app.add_flag("-v,--verbose", _verbose_mode, "Toggle Verbose mode");
-
     app.add_flag("-o,--binary", binary_compilation, "Compile to binary file");
+    app.add_flag("-d,--dump", dump_mode, "Dump IR to file");
 
     CLI::Option *opt = app.add_option("bn-name", _binary_name, "Generated binary name");
     // opt->needs("-o"); Could use this but doesn't provide a good error message
 
     app.parse(argc, argv);
 
-    if (binary_compilation) {
+    if (binary_compilation && *opt) {
         if (!opt->count()) {
             std::cerr << "INTERFUSE: -o flag requires the binary name to compile.\n";
             exit(0);
         }
     }
 
-    //Wasm flag
+    //dump flag
+    CLI::Option *d_opt = app.add_option("dumo-filename", _binary_name, "Dump file name");
 
+    if (dump_mode && *d_opt) {
+        if (!d_opt->count()) {
+            std::cerr << "INTERFUSE: -d flag requires the dump file name.\n";
+            exit(0);
+        }
+    }
 
     CLI11_PARSE(app, argc, argv);
-
-    std::cout << "Compiling " << _global_file_path << std::endl;
 
     try {
 
@@ -81,13 +89,15 @@ int main(int argc, char **argv) {
         if (parser.parse() == 0) {
 
 
-            CodeGenContext context(_verbose_mode, binary_compilation, _global_file_path, _binary_name);
-            context.setTargets();
+            CodeGenContext context(_verbose_mode, binary_compilation, _global_file_path,
+                                   _binary_name, dump_mode);
             context.emitIR(*programBlock);
 
 
-            if (context.binary_compilation)
+            if (context.binary_compilation || context.dump_mode) {
                 context.dumpIR();
+            }
+
 
             if (_verbose_mode) {
                 std::cout << std::endl;
